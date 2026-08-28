@@ -1,0 +1,20 @@
+<%- include('layout/header') %>
+
+<div class="error-page-container">
+  <div class="error-card">
+    <div class="error-badge-wrapper">
+      <span class="error-status-code"><%= status || 500 %></span>
+    </div>
+    <h1 class="error-title"><%= message || 'Ocurrió un error inesperado' %></h1>
+    <p class="error-description">
+      <%= details || 'No fue posible completar la operación solicitada. Por favor verifique los datos ingresados o regrese al catálogo.' %>
+    </p>
+
+    <div class="error-actions">
+      <a href="/library" class="btn btn-primary btn-lg">🏠 Ir al Catálogo de Libros</a>
+      <a href="javascript:history.back()" class="btn btn-outline btn-lg">↩ Regresar a la página anterior</a>
+    </div>
+  </div>
+</div>
+
+<%- include('layout/footer') %>

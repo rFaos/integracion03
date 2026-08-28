@@ -1,0 +1,120 @@
+<%- include('layout/header') %>
+
+<div class="breadcrumb">
+  <a href="/library">← Catálogo</a>
+  <span class="breadcrumb-separator">/</span>
+  <a href="/library/admin/catalog">Panel de Administración</a>
+  <span class="breadcrumb-separator">/</span>
+  <span class="breadcrumb-current"><%= isEdit ? 'Editar Libro' : 'Nuevo Libro' %></span>
+</div>
+
+<div class="admin-form-container">
+  <div class="admin-form-card">
+    <div class="form-header">
+      <h2><%= isEdit ? '✏️ Modificar Libro' : '📖 Registrar Nuevo Libro' %></h2>
+      <p>Complete la información bibliográfica y las relaciones de 4FN (autores, géneros y catálogos).</p>
+    </div>
+
+    <form action="<%= isEdit ? '/library/admin/books/edit/' + book.id : '/library/admin/books/new' %>" 
+          method="POST" 
+          <%= !isEdit ? 'enctype="multipart/form-data"' : '' %>
+          class="form-grid">
+      
+      <!-- ISBN -->
+      <div class="form-group">
+        <label for="isbn">Código ISBN (Único) *</label>
+        <input type="text" id="isbn" name="isbn" value="<%= book.isbn || '' %>" placeholder="Ej. 978-0132350884" required>
+      </div>
+
+      <!-- Título -->
+      <div class="form-group">
+        <label for="title">Título del Libro *</label>
+        <input type="text" id="title" name="title" value="<%= book.title || '' %>" placeholder="Ej. Clean Code" required>
+      </div>
+
+      <!-- Año de Publicación -->
+      <div class="form-group">
+        <label for="publication_year">Año de Publicación *</label>
+        <input type="number" id="publication_year" name="publication_year" min="1000" max="2100" value="<%= book.publication_year || 2024 %>" required>
+      </div>
+
+      <!-- Precio -->
+      <div class="form-group">
+        <label for="price">Precio (MXN) *</label>
+        <input type="number" id="price" name="price" step="0.01" min="0" value="<%= book.price || '' %>" placeholder="Ej. 650.00" required>
+      </div>
+
+      <!-- Stock -->
+      <div class="form-group">
+        <label for="stock">Inventario / Stock en Almacén *</label>
+        <input type="number" id="stock" name="stock" min="0" value="<%= typeof book.stock !== 'undefined' ? book.stock : 10 %>" required>
+      </div>
+
+      <!-- Formato -->
+      <div class="form-group">
+        <label for="format_id">Formato Físico / Digital *</label>
+        <select id="format_id" name="format_id" required>
+          <option value="">-- Seleccione un Formato --</option>
+          <% formats.forEach(fmt => { %>
+            <option value="<%= fmt.id %>" <%= book.format_id == fmt.id ? 'selected' : '' %>><%= fmt.name %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <!-- Categoría -->
+      <div class="form-group">
+        <label for="category_id">Categoría Principal *</label>
+        <select id="category_id" name="category_id" required>
+          <option value="">-- Seleccione una Categoría --</option>
+          <% categories.forEach(cat => { %>
+            <option value="<%= cat.id %>" <%= book.category_id == cat.id ? 'selected' : '' %>><%= cat.name %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <!-- Carga de Imagen (Solo en Nuevo Libro) -->
+      <% if (!isEdit) { %>
+        <div class="form-group">
+          <label for="cover_image">Imagen de Portada (JPG, PNG, WebP)</label>
+          <input type="file" id="cover_image" name="cover_image" accept="image/jpeg,image/png,image/webp">
+        </div>
+      <% } %>
+
+      <!-- Relación Autores (Múltiples) -->
+      <div class="form-group full-width">
+        <label>Autores Asociados (Selección Múltiple - 4FN)</label>
+        <div class="checkbox-grid">
+          <% authors.forEach(auth => { %>
+            <label class="checkbox-item">
+              <input type="checkbox" name="author_ids" value="<%= auth.id %>" <%= selectedAuthors.includes(auth.id) ? 'checked' : '' %>>
+              <span><%= auth.name %> <%= auth.country ? `(${auth.country})` : '' %></span>
+            </label>
+          <% }) %>
+        </div>
+      </div>
+
+      <!-- Relación Géneros (Múltiples) -->
+      <div class="form-group full-width">
+        <label>Géneros y Clasificaciones (Selección Múltiple - 4FN)</label>
+        <div class="checkbox-grid">
+          <% genres.forEach(gnr => { %>
+            <label class="checkbox-item">
+              <input type="checkbox" name="genre_ids" value="<%= gnr.id %>" <%= selectedGenres.includes(gnr.id) ? 'checked' : '' %>>
+              <span><%= gnr.name %></span>
+            </label>
+          <% }) %>
+        </div>
+      </div>
+
+      <!-- Botones de Acción -->
+      <div class="form-group full-width form-actions-row">
+        <button type="submit" class="btn btn-primary btn-lg">
+          <%= isEdit ? '💾 Guardar Cambios' : '🚀 Registrar Libro' %>
+        </button>
+        <a href="<%= isEdit ? '/library/books/' + book.id : '/library/admin/catalog' %>" class="btn btn-outline btn-lg">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<%- include('layout/footer') %>

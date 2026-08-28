@@ -1,0 +1,29 @@
+{
+  "name": "monolito-libreria",
+  "version": "1.0.0",
+  "description": "Aplicación Web Monolítica para Gestión de Librería con Node.js, Express, EJS y PostgreSQL",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node --watch app.js"
+  },
+  "keywords": [
+    "nodejs",
+    "express",
+    "ejs",
+    "postgresql",
+    "monolith",
+    "server-side-rendering"
+  ],
+  "author": "Fabián Azaed Orta Singlaterry (Matrícula: 613504)",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "dotenv": "^16.4.7",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "multer": "^1.4.5-lts.1",
+    "pg": "^8.13.1"
+  }
+}

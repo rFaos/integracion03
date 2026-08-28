@@ -1,0 +1,354 @@
+<%- include('layout/header') %>
+
+<section class="admin-dashboard">
+  <div class="dashboard-header">
+    <div class="dashboard-intro">
+      <h1>⚙️ Panel de Administración y Catálogos</h1>
+      <p>Gestión completa de CRUD sobre todas las tablas del modelo relacional 4FN (Libros, Autores, Géneros, Formatos, Categorías y Conceptos).</p>
+    </div>
+    <div class="dashboard-actions">
+      <a href="/library/admin/books/new" class="btn btn-primary">+ Crear Nuevo Libro</a>
+    </div>
+  </div>
+
+  <!-- Pestañas de Navegación de Catálogos -->
+  <div class="catalog-tabs">
+    <button class="tab-pill active" onclick="switchAdminTab('tab-books')">📚 Libros (<%= books.length %>)</button>
+    <button class="tab-pill" onclick="switchAdminTab('tab-authors')">✍️ Autores (<%= authors.length %>)</button>
+    <button class="tab-pill" onclick="switchAdminTab('tab-genres')">🏷️ Géneros (<%= genres.length %>)</button>
+    <button class="tab-pill" onclick="switchAdminTab('tab-formats')">📦 Formatos (<%= formats.length %>)</button>
+    <button class="tab-pill" onclick="switchAdminTab('tab-categories')">🗂️ Categorías (<%= categories.length %>)</button>
+    <button class="tab-pill" onclick="switchAdminTab('tab-concepts')">🧠 Conceptos (<%= concepts.length %>)</button>
+  </div>
+
+  <!-- 1. TAB: GESTIÓN DE LIBROS -->
+  <div id="tab-books" class="tab-pane active">
+    <div class="panel-card">
+      <div class="panel-card-header">
+        <h3>Inventario General de Libros</h3>
+        <span class="badge badge-accent"><%= books.length %> Registros</span>
+      </div>
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>ISBN</th>
+              <th>Título</th>
+              <th>Año</th>
+              <th>Formato</th>
+              <th>Categoría</th>
+              <th>Precio</th>
+              <th>Stock</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% books.forEach(b => { %>
+              <tr>
+                <td><%= b.id %></td>
+                <td><code><%= b.isbn %></code></td>
+                <td>
+                  <strong><a href="/library/books/<%= b.id %>"><%= b.title %></a></strong>
+                </td>
+                <td><%= b.publication_year %></td>
+                <td><span class="badge badge-format"><%= b.format_name %></span></td>
+                <td><span class="badge badge-category"><%= b.category_name %></span></td>
+                <td>$<%= parseFloat(b.price).toFixed(2) %></td>
+                <td>
+                  <% if (b.stock > 0) { %>
+                    <span class="stock-badge in-stock"><%= b.stock %></span>
+                  <% } else { %>
+                    <span class="stock-badge out-stock">0</span>
+                  <% } %>
+                </td>
+                <td class="action-cell">
+                  <a href="/library/admin/books/edit/<%= b.id %>" class="btn btn-xs btn-outline">Editar</a>
+                  <a href="/library/books/<%= b.id %>" class="btn btn-xs btn-primary">Ver</a>
+                  <form action="/library/admin/books/delete/<%= b.id %>" method="POST" class="inline-form" onsubmit="return confirm('¿Seguro que desea eliminar este libro?');">
+                    <button type="submit" class="btn btn-xs btn-danger">Eliminar</button>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. TAB: GESTIÓN DE AUTORES -->
+  <div id="tab-authors" class="tab-pane">
+    <div class="grid-2col">
+      <div class="panel-card">
+        <h3>➕ Agregar Nuevo Autor</h3>
+        <form action="/library/admin/authors/new" method="POST" class="form-standard">
+          <div class="form-group">
+            <label for="auth-name">Nombre Completo *</label>
+            <input type="text" id="auth-name" name="name" placeholder="Ej. Martin Fowler" required>
+          </div>
+          <div class="form-group">
+            <label for="auth-country">País de Origen</label>
+            <input type="text" id="auth-country" name="country" placeholder="Ej. Reino Unido">
+          </div>
+          <div class="form-group">
+            <label for="auth-bio">Biografía / Perfil</label>
+            <textarea id="auth-bio" name="biography" rows="3" placeholder="Breve reseña profesional..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-success btn-block">Guardar Autor</button>
+        </form>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <h3>Autores en Catálogo</h3>
+          <span class="badge badge-accent"><%= authors.length %> Registros</span>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>País</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% authors.forEach(a => { %>
+                <tr>
+                  <td><%= a.id %></td>
+                  <td><strong><%= a.name %></strong></td>
+                  <td><%= a.country || 'N/A' %></td>
+                  <td>
+                    <form action="/library/admin/authors/delete/<%= a.id %>" method="POST" class="inline-form" onsubmit="return confirm('¿Eliminar autor?');">
+                      <button type="submit" class="btn btn-xs btn-danger">🗑️</button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. TAB: GESTIÓN DE GÉNEROS -->
+  <div id="tab-genres" class="tab-pane">
+    <div class="grid-2col">
+      <div class="panel-card">
+        <h3>➕ Agregar Género</h3>
+        <form action="/library/admin/genres/new" method="POST" class="form-standard">
+          <div class="form-group">
+            <label for="genre-name">Nombre del Género *</label>
+            <input type="text" id="genre-name" name="name" placeholder="Ej. Arquitectura de Software" required>
+          </div>
+          <button type="submit" class="btn btn-success btn-block">Guardar Género</button>
+        </form>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <h3>Géneros Registrados</h3>
+          <span class="badge badge-accent"><%= genres.length %> Registros</span>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% genres.forEach(g => { %>
+                <tr>
+                  <td><%= g.id %></td>
+                  <td><strong><%= g.name %></strong></td>
+                  <td>
+                    <form action="/library/admin/genres/delete/<%= g.id %>" method="POST" class="inline-form" onsubmit="return confirm('¿Eliminar género?');">
+                      <button type="submit" class="btn btn-xs btn-danger">🗑️</button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. TAB: GESTIÓN DE FORMATOS -->
+  <div id="tab-formats" class="tab-pane">
+    <div class="grid-2col">
+      <div class="panel-card">
+        <h3>➕ Agregar Formato</h3>
+        <form action="/library/admin/formats/new" method="POST" class="form-standard">
+          <div class="form-group">
+            <label for="format-name">Nombre del Formato *</label>
+            <input type="text" id="format-name" name="name" placeholder="Ej. Digital PDF" required>
+          </div>
+          <div class="form-group">
+            <label for="format-desc">Descripción</label>
+            <textarea id="format-desc" name="description" rows="3" placeholder="Detalles de la edición..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-success btn-block">Guardar Formato</button>
+        </form>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <h3>Formatos Registrados</h3>
+          <span class="badge badge-accent"><%= formats.length %> Registros</span>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Descripción</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% formats.forEach(f => { %>
+                <tr>
+                  <td><%= f.id %></td>
+                  <td><strong><%= f.name %></strong></td>
+                  <td><%= f.description || 'Sin descripción' %></td>
+                  <td>
+                    <form action="/library/admin/formats/delete/<%= f.id %>" method="POST" class="inline-form" onsubmit="return confirm('¿Eliminar formato?');">
+                      <button type="submit" class="btn btn-xs btn-danger">🗑️</button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. TAB: GESTIÓN DE CATEGORÍAS -->
+  <div id="tab-categories" class="tab-pane">
+    <div class="grid-2col">
+      <div class="panel-card">
+        <h3>➕ Agregar Categoría</h3>
+        <form action="/library/admin/categories/new" method="POST" class="form-standard">
+          <div class="form-group">
+            <label for="cat-name">Nombre de Categoría *</label>
+            <input type="text" id="cat-name" name="name" placeholder="Ej. Cloud Computing" required>
+          </div>
+          <div class="form-group">
+            <label for="cat-desc">Descripción</label>
+            <textarea id="cat-desc" name="description" rows="3" placeholder="Alcance de la categoría..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-success btn-block">Guardar Categoría</button>
+        </form>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <h3>Categorías Registradas</h3>
+          <span class="badge badge-accent"><%= categories.length %> Registros</span>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Descripción</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% categories.forEach(c => { %>
+                <tr>
+                  <td><%= c.id %></td>
+                  <td><strong><%= c.name %></strong></td>
+                  <td><%= c.description || 'Sin descripción' %></td>
+                  <td>
+                    <form action="/library/admin/categories/delete/<%= c.id %>" method="POST" class="inline-form" onsubmit="return confirm('¿Eliminar categoría?');">
+                      <button type="submit" class="btn btn-xs btn-danger">🗑️</button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. TAB: GESTIÓN DE CONCEPTOS (GLOBAL) -->
+  <div id="tab-concepts" class="tab-pane">
+    <div class="grid-2col">
+      <div class="panel-card">
+        <h3>➕ Agregar Concepto Global</h3>
+        <form action="/library/admin/concepts/new" method="POST" class="form-standard">
+          <div class="form-group">
+            <label for="con-name">Nombre del Concepto *</label>
+            <input type="text" id="con-name" name="name" placeholder="Ej. Serverless, IaaS, FaaS" required>
+          </div>
+          <div class="form-group">
+            <label for="con-sum">Resumen General / Definición Canónica</label>
+            <textarea id="con-sum" name="general_summary" rows="3" placeholder="Resumen teórico global..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-success btn-block">Guardar Concepto</button>
+        </form>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <h3>Catálogo de Conceptos</h3>
+          <span class="badge badge-accent"><%= concepts.length %> Registros</span>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Concepto</th>
+                <th>Resumen General</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% concepts.forEach(con => { %>
+                <tr>
+                  <td><%= con.id %></td>
+                  <td><strong><%= con.name %></strong></td>
+                  <td><%= con.general_summary || 'N/A' %></td>
+                  <td>
+                    <form action="/library/admin/concepts/delete/<%= con.id %>" method="POST" class="inline-form" onsubmit="return confirm('¿Eliminar concepto?');">
+                      <button type="submit" class="btn btn-xs btn-danger">🗑️</button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  function switchAdminTab(tabId) {
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-pill').forEach(b => b.classList.remove('active'));
+    
+    document.getElementById(tabId).classList.add('active');
+    event.currentTarget.classList.add('active');
+  }
+</script>
+
+<%- include('layout/footer') %>

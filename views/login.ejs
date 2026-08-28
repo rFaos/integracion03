@@ -1,0 +1,79 @@
+<%- include('layout/header') %>
+
+<div class="auth-container">
+  <div class="auth-card">
+    <div class="auth-header">
+      <h2>Acceso al Sistema</h2>
+      <p>Ingrese sus credenciales de usuario o registre una nueva cuenta para consultar el catálogo bibliográfico.</p>
+    </div>
+
+    <!-- Pestañas de Login y Registro -->
+    <div class="auth-tabs">
+      <button class="tab-btn active" onclick="switchAuthTab('login-tab')">Iniciar Sesión</button>
+      <button class="tab-btn" onclick="switchAuthTab('register-tab')">Crear Cuenta</button>
+    </div>
+
+    <!-- Formulario de Inicio de Sesión -->
+    <div id="login-tab" class="tab-content active">
+      <form action="/library/login" method="POST" class="form-standard">
+        <div class="form-group">
+          <label for="login-username">Nombre de Usuario</label>
+          <input type="text" id="login-username" name="username" placeholder="Ej. admin o usuario1" required autofocus autocomplete="username">
+        </div>
+
+        <div class="form-group">
+          <label for="login-password">Contraseña</label>
+          <input type="password" id="login-password" name="password" placeholder="••••••••" required autocomplete="current-password">
+        </div>
+
+        <div class="form-helper">
+          <span class="badge badge-accent">Credenciales por defecto: admin / 666</span>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">Ingresar a la Librería</button>
+      </form>
+    </div>
+
+    <!-- Formulario de Registro de Usuarios -->
+    <div id="register-tab" class="tab-content">
+      <form action="/library/register" method="POST" class="form-standard">
+        <div class="form-group">
+          <label for="reg-username">Nombre de Usuario</label>
+          <input type="text" id="reg-username" name="username" placeholder="Elija un nombre de usuario" required autocomplete="username">
+        </div>
+
+        <div class="form-group">
+          <label for="reg-password">Contraseña</label>
+          <input type="password" id="reg-password" name="password" placeholder="Mínimo 4 caracteres" required autocomplete="new-password">
+        </div>
+
+        <div class="form-group">
+          <label for="reg-confirm">Confirmar Contraseña</label>
+          <input type="password" id="reg-confirm" name="confirm_password" placeholder="Repita la contraseña" required autocomplete="new-password">
+        </div>
+
+        <div class="form-helper">
+          <small>Los registros públicos se crean automáticamente con rol <strong>Usuario</strong> según las políticas de seguridad.</small>
+        </div>
+
+        <button type="submit" class="btn btn-success btn-block">Registrar Cuenta</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  function switchAuthTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    
+    document.getElementById(tabId).classList.add('active');
+    if (tabId === 'login-tab') {
+      document.querySelectorAll('.tab-btn')[0].classList.add('active');
+    } else {
+      document.querySelectorAll('.tab-btn')[1].classList.add('active');
+    }
+  }
+</script>
+
+<%- include('layout/footer') %>

@@ -1,0 +1,235 @@
+<%- include('layout/header') %>
+
+<div class="breadcrumb">
+  <a href="/library">← Volver al Catálogo</a>
+  <span class="breadcrumb-separator">/</span>
+  <span class="breadcrumb-current"><%= book.title %></span>
+</div>
+
+<div class="book-detail-container">
+  <!-- Columna Izquierda: Galería de Imágenes y Portada -->
+  <aside class="detail-gallery-col">
+    <div class="main-cover-box">
+      <% const cover = images.find(img => img.is_cover) || images[0]; %>
+      <% if (cover) { %>
+        <img src="<%= cover.image_url %>" alt="<%= cover.alt_text || book.title %>" class="main-cover-img" onerror="this.src='/library/public/img/default-book.png'">
+      <% } else { %>
+        <img src="/library/public/img/default-book.png" alt="Sin imagen" class="main-cover-img">
+      <% } %>
+      <div class="cover-caption">
+        <span><%= cover && cover.is_cover ? '⭐ Portada Principal' : 'Imagen de Catálogo' %></span>
+      </div>
+    </div>
+
+    <!-- Galería de Miniaturas -->
+    <% if (images.length > 1) { %>
+      <div class="thumbnails-grid">
+        <% images.forEach(img => { %>
+          <div class="thumb-card <%= img.is_cover ? 'is-active-cover' : '' %>">
+            <img src="<%= img.image_url %>" alt="<%= img.alt_text %>" class="thumb-img" onerror="this.src='/library/public/img/default-book.png'">
+            <% if (user && user.role === 'Administrador') { %>
+              <div class="thumb-actions">
+                <% if (!img.is_cover) { %>
+                  <form action="/library/admin/books/<%= book.id %>/images/<%= img.id %>/cover" method="POST" class="inline-form">
+                    <button type="submit" class="btn btn-xs btn-outline" title="Fijar como portada">⭐</button>
+                  </form>
+                <% } %>
+                <form action="/library/admin/books/<%= book.id %>/images/<%= img.id %>/delete" method="POST" class="inline-form" onsubmit="return confirm('¿Eliminar esta imagen?');">
+                  <button type="submit" class="btn btn-xs btn-danger" title="Eliminar imagen">🗑️</button>
+                </form>
+              </div>
+            <% } %>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+
+    <!-- Cargar Imagen Nueva (Solo Administrador) -->
+    <% if (user && user.role === 'Administrador') { %>
+      <div class="admin-panel-card">
+        <h4>📸 Subir Imagen Adicional</h4>
+        <form action="/library/admin/books/<%= book.id %>/images/upload" method="POST" enctype="multipart/form-data" class="form-standard">
+          <div class="form-group">
+            <label for="book_image">Archivo (JPG, PNG, WebP)</label>
+            <input type="file" id="book_image" name="book_image" accept="image/jpeg,image/png,image/webp" required>
+          </div>
+          <div class="form-group">
+            <label for="alt_text">Texto Alternativo (Alt)</label>
+            <input type="text" id="alt_text" name="alt_text" placeholder="Descripción de la imagen">
+          </div>
+          <div class="form-group checkbox-group">
+            <label>
+              <input type="checkbox" name="is_cover" value="true"> Marcar como Portada Principal
+            </label>
+          </div>
+          <button type="submit" class="btn btn-outline btn-block btn-sm">Subir Imagen</button>
+        </form>
+      </div>
+    <% } %>
+  </aside>
+
+  <!-- Columna Derecha: Metadatos y Autores -->
+  <section class="detail-info-col">
+    <div class="detail-meta-header">
+      <div class="badges-row">
+        <span class="badge badge-category"><%= book.category_name %></span>
+        <span class="badge badge-format"><%= book.format_name %></span>
+        <span class="badge badge-accent">Publicado en <%= book.publication_year %></span>
+      </div>
+
+      <h1 class="detail-title"><%= book.title %></h1>
+      <p class="detail-isbn"><strong>ISBN:</strong> <%= book.isbn %></p>
+    </div>
+
+    <div class="detail-pricing-box">
+      <div class="price-block">
+        <span class="price-caption">Precio Unitario</span>
+        <span class="price-highlight">$<%= parseFloat(book.price).toFixed(2) %> MXN</span>
+      </div>
+      <div class="stock-block">
+        <span class="price-caption">Disponibilidad en Bodega</span>
+        <% if (book.stock > 10) { %>
+          <span class="stock-badge in-stock">En Existencia (<%= book.stock %> unidades)</span>
+        <% } else if (book.stock > 0) { %>
+          <span class="stock-badge low-stock">Stock Crítico (<%= book.stock %> unidades)</span>
+        <% } else { %>
+          <span class="stock-badge out-stock">Agotado Temporalmente</span>
+        <% } %>
+      </div>
+    </div>
+
+    <!-- Autores -->
+    <div class="detail-section">
+      <h3>✍️ Autores Registrados</h3>
+      <div class="authors-list">
+        <% if (authors.length === 0) { %>
+          <p class="text-muted">No se han registrado autores para este libro.</p>
+        <% } else { %>
+          <% authors.forEach(author => { %>
+            <div class="author-card">
+              <div class="author-main">
+                <span class="author-name"><%= author.name %></span>
+                <% if (author.country) { %>
+                  <span class="author-country">📍 <%= author.country %></span>
+                <% } %>
+              </div>
+              <% if (author.biography) { %>
+                <p class="author-bio"><%= author.biography %></p>
+              <% } %>
+            </div>
+          <% }) %>
+        <% } %>
+      </div>
+    </div>
+
+    <!-- Géneros -->
+    <div class="detail-section">
+      <h3>🏷️ Clasificación por Géneros</h3>
+      <div class="genres-tags">
+        <% if (genres.length === 0) { %>
+          <span class="text-muted">Sin géneros específicos</span>
+        <% } else { %>
+          <% genres.forEach(genre => { %>
+            <span class="genre-tag"><%= genre.name %></span>
+          <% }) %>
+        <% } %>
+      </div>
+    </div>
+
+    <!-- Acciones de Administrador -->
+    <% if (user && user.role === 'Administrador') { %>
+      <div class="admin-actions-bar">
+        <a href="/library/admin/books/edit/<%= book.id %>" class="btn btn-primary">✏️ Editar Datos del Libro</a>
+        <form action="/library/admin/books/delete/<%= book.id %>" method="POST" class="inline-form" onsubmit="return confirm('¿Confirma la eliminación permanente de este libro y sus relaciones asociadas?');">
+          <button type="submit" class="btn btn-danger">🗑️ Eliminar Libro</button>
+        </form>
+      </div>
+    <% } %>
+  </section>
+</div>
+
+<!-- Sección 4FN: Conceptos y Definiciones Específicas del Libro -->
+<section class="concepts-section">
+  <div class="concepts-header">
+    <div class="concepts-title-area">
+      <h2>🧠 Conceptos y Definiciones Específicas del Libro (4FN)</h2>
+      <p>Definiciones de Cloud Computing, Arquitectura y Computación contextualizadas según el autor y capítulo.</p>
+    </div>
+  </div>
+
+  <% if (concepts.length === 0) { %>
+    <div class="empty-state-mini">
+      <p>Este libro aún no tiene conceptos ni definiciones técnicas asociadas.</p>
+    </div>
+  <% } else { %>
+    <div class="concepts-table-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width: 25%;">Concepto Clave</th>
+            <th style="width: 45%;">Definición Específica en este Libro</th>
+            <th style="width: 20%;">Ubicación / Capítulo</th>
+            <% if (user && user.role === 'Administrador') { %>
+              <th style="width: 10%;">Acción</th>
+            <% } %>
+          </tr>
+        </thead>
+        <tbody>
+          <% concepts.forEach(c => { %>
+            <tr>
+              <td>
+                <strong><%= c.concept_name %></strong>
+                <% if (c.general_summary) { %>
+                  <div class="concept-summary-hint"><%= c.general_summary %></div>
+                <% } %>
+              </td>
+              <td><%= c.specific_definition %></td>
+              <td><span class="badge badge-accent"><%= c.chapter_page || 'No especificado' %></span></td>
+              <% if (user && user.role === 'Administrador') { %>
+                <td>
+                  <form action="/library/admin/books/<%= book.id %>/concepts/delete/<%= c.concept_id %>" method="POST" class="inline-form" onsubmit="return confirm('¿Desasociar este concepto del libro?');">
+                    <button type="submit" class="btn btn-danger btn-xs">Quitar</button>
+                  </form>
+                </td>
+              <% } %>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+
+  <!-- Formulario de Asociación de Conceptos (Solo Administrador) -->
+  <% if (user && user.role === 'Administrador') { %>
+    <div class="add-concept-box">
+      <h3>➕ Asociar Nuevo Concepto al Libro</h3>
+      <form action="/library/admin/books/<%= book.id %>/concepts/add" method="POST" class="form-grid">
+        <div class="form-group">
+          <label for="concept_id">Seleccionar Concepto del Catálogo</label>
+          <select id="concept_id" name="concept_id" required>
+            <option value="">-- Seleccione un concepto --</option>
+            <% availableConcepts.forEach(ac => { %>
+              <option value="<%= ac.id %>"><%= ac.name %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="chapter_page">Capítulo / Página de Referencia</label>
+          <input type="text" id="chapter_page" name="chapter_page" placeholder="Ej. Capítulo 4, p. 112">
+        </div>
+
+        <div class="form-group full-width">
+          <label for="specific_definition">Definición Contextual Específica del Libro</label>
+          <textarea id="specific_definition" name="specific_definition" rows="3" placeholder="Explique cómo define este libro el concepto..." required></textarea>
+        </div>
+
+        <div class="form-group full-width">
+          <button type="submit" class="btn btn-success">Guardar Concepto en Libro</button>
+        </div>
+      </form>
+    </div>
+  <% } %>
+</section>
+
+<%- include('layout/footer') %>

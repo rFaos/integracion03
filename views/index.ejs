@@ -1,0 +1,126 @@
+<%- include('layout/header') %>
+
+<section class="catalog-header">
+  <div class="catalog-intro">
+    <h1>Catálogo de Libros y Conceptos</h1>
+    <p>Explore nuestro repositorio bibliográfico especializado en Computación, Sistemas Distribuidos, Cloud Computing y Arquitectura de Software.</p>
+  </div>
+
+  <!-- Barra de Filtros y Búsqueda Server-Side (GET x-www-form-urlencoded) -->
+  <div class="filter-card">
+    <form action="/library" method="GET" class="filter-form">
+      <div class="filter-group filter-search">
+        <label for="q">Buscar por Título o ISBN</label>
+        <input type="text" id="q" name="q" value="<%= filters.q %>" placeholder="Ej. Kubernetes, Designing Data, 978-...">
+      </div>
+
+      <div class="filter-group">
+        <label for="category_id">Categoría</label>
+        <select id="category_id" name="category_id">
+          <option value="">Todas las Categorías</option>
+          <% categories.forEach(cat => { %>
+            <option value="<%= cat.id %>" <%= filters.category_id == cat.id ? 'selected' : '' %>><%= cat.name %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="format_id">Formato</label>
+        <select id="format_id" name="format_id">
+          <option value="">Todos los Formatos</option>
+          <% formats.forEach(fmt => { %>
+            <option value="<%= fmt.id %>" <%= filters.format_id == fmt.id ? 'selected' : '' %>><%= fmt.name %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="genre_id">Género</label>
+        <select id="genre_id" name="genre_id">
+          <option value="">Todos los Géneros</option>
+          <% genres.forEach(gnr => { %>
+            <option value="<%= gnr.id %>" <%= filters.genre_id == gnr.id ? 'selected' : '' %>><%= gnr.name %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="filter-actions">
+        <button type="submit" class="btn btn-primary">🔍 Filtrar</button>
+        <% if (filters.q || filters.category_id || filters.format_id || filters.genre_id) { %>
+          <a href="/library" class="btn btn-outline">Limpiar</a>
+        <% } %>
+      </div>
+    </form>
+  </div>
+</section>
+
+<!-- Rejilla de Libros -->
+<section class="catalog-grid-section">
+  <div class="catalog-meta">
+    <span>Mostrando <strong><%= books.length %></strong> títulos encontrados</span>
+  </div>
+
+  <% if (books.length === 0) { %>
+    <div class="empty-state">
+      <div class="empty-icon">📖</div>
+      <h3>No se encontraron libros</h3>
+      <p>Intente ajustar los parámetros de búsqueda o limpiar los filtros seleccionados.</p>
+      <a href="/library" class="btn btn-primary">Ver todos los libros</a>
+    </div>
+  <% } else { %>
+    <div class="book-grid">
+      <% books.forEach(book => { %>
+        <article class="book-card">
+          <div class="book-cover-wrapper">
+            <img src="<%= book.cover_image %>" alt="Portada de <%= book.title %>" class="book-cover-img" onerror="this.src='/library/public/img/default-book.png'">
+            <span class="badge badge-format"><%= book.format_name %></span>
+          </div>
+
+          <div class="book-card-body">
+            <span class="badge badge-category"><%= book.category_name %></span>
+            <h3 class="book-title">
+              <a href="/library/books/<%= book.id %>"><%= book.title %></a>
+            </h3>
+            
+            <p class="book-authors">
+              <span class="author-icon">✍️</span> <%= book.authors_list %>
+            </p>
+
+            <div class="book-details-mini">
+              <span class="book-isbn"><strong>ISBN:</strong> <%= book.isbn %></span>
+              <span class="book-year"><strong>Año:</strong> <%= book.publication_year %></span>
+            </div>
+
+            <div class="book-card-footer">
+              <div class="book-pricing">
+                <span class="price-label">Precio:</span>
+                <span class="price-val">$<%= parseFloat(book.price).toFixed(2) %> MXN</span>
+              </div>
+
+              <div class="book-stock">
+                <% if (book.stock > 10) { %>
+                  <span class="stock-badge in-stock">En Stock (<%= book.stock %>)</span>
+                <% } else if (book.stock > 0) { %>
+                  <span class="stock-badge low-stock">Últimas <%= book.stock %> piezas</span>
+                <% } else { %>
+                  <span class="stock-badge out-stock">Agotado</span>
+                <% } %>
+              </div>
+            </div>
+
+            <div class="book-actions">
+              <a href="/library/books/<%= book.id %>" class="btn btn-primary btn-block btn-sm">Ver Detalle y Conceptos</a>
+              <% if (user && user.role === 'Administrador') { %>
+                <div class="admin-quick-actions">
+                  <a href="/library/admin/books/edit/<%= book.id %>" class="btn btn-outline btn-sm">Editar</a>
+                </div>
+              <% } %>
+            </div>
+          </div>
+        </article>
+      <% }) %>
+    </div>
+  <% } %>
+</section>
+
+<%- include('layout/footer') %>

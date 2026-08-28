@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= typeof title !== 'undefined' ? title : 'Monolito Librería - UDEM' %></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/library/public/styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-area">
+        <a href="/library" class="brand-logo">
+          <span class="logo-icon">📚</span>
+          <span class="logo-text">Monolito<strong>Librería</strong></span>
+        </a>
+        <span class="badge badge-accent">SC-2236 Monolith</span>
+      </div>
+
+      <nav class="main-nav">
+        <% if (user) { %>
+          <a href="/library" class="nav-link">Catálogo de Libros</a>
+          <% if (user.role === 'Administrador') { %>
+            <a href="/library/admin/catalog" class="nav-link nav-admin-link">⚙️ Panel Admin</a>
+            <a href="/library/admin/books/new" class="btn btn-primary btn-sm">+ Nuevo Libro</a>
+          <% } %>
+          <div class="user-badge">
+            <span class="user-avatar"><%= user.username.charAt(0).toUpperCase() %></span>
+            <div class="user-info">
+              <span class="user-name"><%= user.username %></span>
+              <span class="user-role"><%= user.role %></span>
+            </div>
+            <form action="/library/logout" method="POST" class="inline-form">
+              <button type="submit" class="btn btn-outline btn-sm">Salir</button>
+            </form>
+          </div>
+        <% } else { %>
+          <a href="/library/login" class="btn btn-primary btn-sm">Iniciar Sesión</a>
+        <% } %>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <% if (typeof errorMessage !== 'undefined' && errorMessage) { %>
+      <div class="alert alert-error">
+        <span class="alert-icon">⚠️</span>
+        <span class="alert-text"><%= errorMessage %></span>
+      </div>
+    <% } %>
+
+    <% if (typeof successMessage !== 'undefined' && successMessage) { %>
+      <div class="alert alert-success">
+        <span class="alert-icon">✅</span>
+        <span class="alert-text"><%= successMessage %></span>
+      </div>
+    <% } %>
