@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="library03.xsl"?>
+<library>
+  <book isbn="978-1491973042">
+    <title>Designing Data-Intensive Applications</title>
+    <authors>
+      <author>Martin Kleppmann</author>
+    </authors>
+    <publication_year>2017</publication_year>
+    <price currency="USD">45.00</price>
+    <stock>15</stock>
+    <format>Hardcover</format>
+    <category>Distributed Systems</category>
+    <genres>
+      <genre>Distributed Systems</genre>
+      <genre>Database Architecture</genre>
+    </genres>
+    <cover_image>https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400</cover_image>
+    <concepts>
+      <concept name="Distributed Storage">
+        <definition>Distributed systems that process and store massive data with partitioning and replication.</definition>
+        <chapter_page>Chapter 1, p. 18</chapter_page>
+      </concept>
+      <concept name="Fault Tolerance">
+        <definition>Guarantees that a distributed system remains operational despite nodes failing.</definition>
+        <chapter_page>Chapter 5, p. 152</chapter_page>
+      </concept>
+    </concepts>
+  </book>
+
+  <book isbn="978-0134494166">
+    <title>Clean Architecture: A Craftsman Guide</title>
+    <authors>
+      <author>Robert C. Martin</author>
+    </authors>
+    <publication_year>2017</publication_year>
+    <price currency="USD">39.99</price>
+    <stock>20</stock>
+    <format>Paperback</format>
+    <category>Software Architecture</category>
+    <genres>
+      <genre>Software Architecture</genre>
+      <genre>Best Practices</genre>
+    </genres>
+    <cover_image>https://images.unsplash.com/photo-1532012164546-f432f2e3777a?w=400</cover_image>
+    <concepts>
+      <concept name="Decoupled Boundaries">
+        <definition>Isolating the core business rules from frameworks, databases, and UI dependencies.</definition>
+        <chapter_page>Chapter 17, p. 165</chapter_page>
+      </concept>
+    </concepts>
+  </book>
+
+  <book isbn="978-1491950357">
+    <title>Building Microservices: Designing Fine-Grained Systems</title>
+    <authors>
+      <author>Sam Newman</author>
+    </authors>
+    <publication_year>2021</publication_year>
+    <price currency="USD">49.50</price>
+    <stock>12</stock>
+    <format>Hardcover</format>
+    <category>Microservices</category>
+    <genres>
+      <genre>Microservices</genre>
+      <genre>Cloud Architecture</genre>
+    </genres>
+    <cover_image>https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400</cover_image>
+    <concepts>
+      <concept name="Microservices">
+        <definition>Decomposing systems into autonomous, loosely coupled services with decentralized data storage.</definition>
+        <chapter_page>Chapter 1, p. 4</chapter_page>
+      </concept>
+      <concept name="API Gateway">
+        <definition>Single entry point aggregating client requests and routing to backend microservices.</definition>
+        <chapter_page>Chapter 5, p. 102</chapter_page>
+      </concept>
+    </concepts>
+  </book>
+
+  <book isbn="978-0132350884">
+    <title>Clean Code: A Handbook of Agile Software</title>
+    <authors>
+      <author>Robert C. Martin</author>
+    </authors>
+    <publication_year>2008</publication_year>
+    <price currency="USD">42.00</price>
+    <stock>25</stock>
+    <format>Paperback</format>
+    <category>Software Engineering</category>
+    <genres>
+      <genre>Software Engineering</genre>
+      <genre>Best Practices</genre>
+    </genres>
+    <cover_image>https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=400</cover_image>
+    <concepts>
+      <concept name="Clean Code Principles">
+        <definition>Writing expressive, readable, and highly testable code that minimizes cognitive load.</definition>
+        <chapter_page>Chapter 1, p. 2</chapter_page>
+      </concept>
+    </concepts>
+  </book>
+
+  <book isbn="978-0321125217">
+    <title>Domain-Driven Design: Tackling Complexity</title>
+    <authors>
+      <author>Eric Evans</author>
+    </authors>
+    <publication_year>2003</publication_year>
+    <price currency="USD">55.00</price>
+    <stock>10</stock>
+    <format>Hardcover</format>
+    <category>Software Architecture</category>
+    <genres>
+      <genre>Software Architecture</genre>
+      <genre>Domain Modeling</genre>
+    </genres>
+    <cover_image>https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=400</cover_image>
+    <concepts>
+      <concept name="Ubiquitous Language">
+        <definition>Shared vocabulary between developers and domain experts to eliminate translation friction.</definition>
+        <chapter_page>Chapter 2, p. 23</chapter_page>
+      </concept>
+    </concepts>
+  </book>
+
+  <book isbn="978-1492043782">
+    <title>Kubernetes: Up and Running</title>
+    <authors>
+      <author>Kelsey Hightower</author>
+    </authors>
+    <publication_year>2022</publication_year>
+    <price currency="USD">38.00</price>
+    <stock>18</stock>
+    <format>Digital PDF</format>
+    <category>DevOps</category>
+    <genres>
+      <genre>DevOps</genre>
+      <genre>Cloud Computing</genre>
+    </genres>
+    <cover_image>https://images.unsplash.com/photo-1667372393119-3d4c48d07fc9?w=400</cover_image>
+    <concepts>
+      <concept name="Containers">
+        <definition>Operating system-level virtualization sharing the host kernel with isolated namespaces and cgroups.</definition>
+        <chapter_page>Chapter 2, p. 25</chapter_page>
+      </concept>
+      <concept name="Kubernetes">
+        <definition>Declarative orchestrator for automating container deployment, scaling, and reconciliation.</definition>
+        <chapter_page>Chapter 3, p. 45</chapter_page>
+      </concept>
+    </concepts>
+  </book>
+
+  <book isbn="978-1492056010">
+    <title>Cloud Native Patterns: Designing Change-Tolerant Software</title>
+    <authors>
+      <author>Sam Newman</author>
+    </authors>
+    <publication_year>2019</publication_year>
+    <price currency="USD">44.00</price>
+    <stock>16</stock>
+    <format>Digital EPUB</format>
+    <category>Cloud Computing</category>
+    <genres>
+      <genre>Cloud Computing</genre>
+      <genre>Microservices</genre>
+    </genres>
+    <cover_image>https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=400</cover_image>
+    <concepts>
+      <concept name="IaaS (Infrastructure as a Service)">
+        <definition>On-demand programmatic provisioning of compute, network, and storage resources.</definition>
+        <chapter_page>Chapter 1, p. 10</chapter_page>
+      </concept>
+      <concept name="PaaS (Platform as a Service)">
+        <definition>Managed runtime environments abstracting hardware and OS maintenance.</definition>
+        <chapter_page>Chapter 1, p. 15</chapter_page>
+      </concept>
+      <concept name="SaaS (Software as a Service)">
+        <definition>Centrally hosted full applications delivered on-demand over the web.</definition>
+        <chapter_page>Chapter 1, p. 20</chapter_page>
+      </concept>
+      <concept name="FaaS (Function as a Service)">
+        <definition>Event-driven stateless compute functions scaling instantly down to zero.</definition>
+        <chapter_page>Chapter 2, p. 38</chapter_page>
+      </concept>
+      <concept name="Serverless">
+        <definition>Operational paradigm delegating server provisioning and scaling to cloud providers.</definition>
+        <chapter_page>Chapter 2, p. 42</chapter_page>
+      </concept>
+      <concept name="Zero Trust">
+        <definition>Security model verifying every request explicitly with mutual mTLS encryption.</definition>
+        <chapter_page>Chapter 8, p. 210</chapter_page>
+      </concept>
+    </concepts>
+  </book>
+
+  <book isbn="978-1950538478">
+    <title>The Phoenix Project: A Novel about IT and DevOps</title>
+    <authors>
+      <author>Gene Kim</author>
+    </authors>
+    <publication_year>2018</publication_year>
+    <price currency="USD">28.00</price>
+    <stock>28</stock>
+    <format>Pocket Edition</format>
+    <category>DevOps</category>
+    <genres>
+      <genre>DevOps</genre>
+      <genre>Case Studies</genre>
+    </genres>
+    <cover_image>https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=400</cover_image>
+    <concepts>
+      <concept name="Three Ways of DevOps">
+        <definition>Flow, Feedback, and Continuous Experimentation principles transforming IT operations.</definition>
+        <chapter_page>Chapter 3, p. 55</chapter_page>
+      </concept>
+    </concepts>
+  </book>
+
+  <book isbn="978-0133492606">
+    <title>Computer Networks (5th Edition)</title>
+    <authors>
+      <author>Andrew S. Tanenbaum</author>
+    </authors>
+    <publication_year>2010</publication_year>
+    <price currency="USD">85.00</price>
+    <stock>4</stock>
+    <format>Hardcover</format>
+    <category>Computer Networks</category>
+    <genres>
+      <genre>Computer Networks</genre>
+      <genre>Academic Textbook</genre>
+    </genres>
+    <cover_image>https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400</cover_image>
+    <concepts>
+      <concept name="TCP/IP Layering">
+        <definition>Layered protocol stack enabling deterministic packet switching across internetworks.</definition>
+        <chapter_page>Chapter 1, p. 32</chapter_page>
+      </concept>
+    </concepts>
+  </book>
+
+  <book isbn="978-0134092669">
+    <title>Operating Systems: Design and Implementation</title>
+    <authors>
+      <author>Andrew S. Tanenbaum</author>
+    </authors>
+    <publication_year>2015</publication_year>
+    <price currency="USD">78.00</price>
+    <stock>0</stock>
+    <format>Hardcover</format>
+    <category>Operating Systems</category>
+    <genres>
+      <genre>Operating Systems</genre>
+      <genre>Academic Textbook</genre>
+    </genres>
+    <cover_image>https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400</cover_image>
+    <concepts>
+      <concept name="Microkernel Architecture">
+        <definition>Minimal kernel running only core primitives in supervisor mode while OS servers run in user space.</definition>
+        <chapter_page>Chapter 1, p. 12</chapter_page>
+      </concept>
+    </concepts>
+  </book>
+</library>

@@ -1,6 +1,6 @@
 -- ==============================================================================
--- PROYECTO: APLICACIÓN WEB MONOLÍTICA PARA GESTIÓN DE LIBRERÍA
--- SCRIPT: 01_schema.sql - Esquema Relacional Normalizado en 4FN
+-- PROYECTO: INTEGRACION03 - GESTIÓN INTEGRAL DE LIBRERÍA
+-- SCRIPT: db_schema.sql - Esquema Relacional Normalizado en 4FN
 -- AUTOR: Fabián Azaed Orta Singlaterry (Matrícula: 613504)
 -- ==============================================================================
 
@@ -27,7 +27,7 @@ CREATE TABLE users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Índice único parcial que restringe la existencia de máximo 1 'Administrador' a nivel de motor de BD
+-- Índice único parcial que restringe la existencia de máximo 1 'Administrador'
 CREATE UNIQUE INDEX idx_single_admin ON users (role) WHERE role = 'Administrador';
 
 -- 3. Catálogos Independientes (1FN, 2FN, 3FN)
@@ -76,21 +76,21 @@ CREATE TABLE books (
 
 -- 5. Tablas Intermedias / Descomposición de Dependencias Multivaluadas (4FN)
 
--- MVD: book_id ->-> author_id (Un libro puede tener múltiples autores y un autor múltiples libros)
+-- MVD: book_id ->-> author_id (Relación N:M)
 CREATE TABLE book_authors (
     book_id INT NOT NULL REFERENCES books(id) ON UPDATE CASCADE ON DELETE CASCADE,
     author_id INT NOT NULL REFERENCES authors(id) ON UPDATE CASCADE ON DELETE CASCADE,
     PRIMARY KEY (book_id, author_id)
 );
 
--- MVD: book_id ->-> genre_id (Un libro puede pertenecer a múltiples géneros y un género a múltiples libros)
+-- MVD: book_id ->-> genre_id (Relación N:M)
 CREATE TABLE book_genres (
     book_id INT NOT NULL REFERENCES books(id) ON UPDATE CASCADE ON DELETE CASCADE,
     genre_id INT NOT NULL REFERENCES genres(id) ON UPDATE CASCADE ON DELETE CASCADE,
     PRIMARY KEY (book_id, genre_id)
 );
 
--- MVD: book_id ->-> image_url (Un libro puede poseer múltiples imágenes asociadas)
+-- MVD: book_id ->-> image_url (Relación 1:N)
 CREATE TABLE book_images (
     id SERIAL PRIMARY KEY,
     book_id INT NOT NULL REFERENCES books(id) ON UPDATE CASCADE ON DELETE CASCADE,
@@ -99,11 +99,12 @@ CREATE TABLE book_images (
     is_cover BOOLEAN NOT NULL DEFAULT FALSE
 );
 
--- MVD: book_id ->-> concept_id con atributos de relación específica (definición contextual y localización)
+-- MVD: book_id ->-> concept_id con atributos de relación contextualizada por libro
 CREATE TABLE book_concepts (
     book_id INT NOT NULL REFERENCES books(id) ON UPDATE CASCADE ON DELETE CASCADE,
     concept_id INT NOT NULL REFERENCES concepts(id) ON UPDATE CASCADE ON DELETE CASCADE,
-    specific_definition TEXT NOT NULL,
+    definition TEXT NOT NULL,
+    specific_definition TEXT,
     chapter_page VARCHAR(100),
     PRIMARY KEY (book_id, concept_id)
 );
