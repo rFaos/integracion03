@@ -237,6 +237,38 @@ def serialize_error_to_xml(message, extra=None):
     ET.indent(root, space="  ")
     return ET.tostring(root, encoding="utf-8", xml_declaration=True).decode("utf-8")
 
+def serialize_book_topics_to_xml(data):
+    """
+    Serializa la respuesta de temas de un libro (o lista de libros) a XML.
+    """
+    if isinstance(data, list):
+        root = ET.Element("libros_temas")
+        for item in data:
+            libro_elem = ET.SubElement(root, "libro", attrib={"isbn": str(item.get("isbn") or "")})
+            ET.SubElement(libro_elem, "nombre_libro").text = str(item.get("nombre_libro") or "")
+            temas_elem = ET.SubElement(libro_elem, "temas")
+            for t in item.get("temas", []):
+                tema_elem = ET.SubElement(temas_elem, "tema")
+                ET.SubElement(tema_elem, "nombre").text = str(t.get("tema") or "")
+                ET.SubElement(tema_elem, "descripcion").text = str(t.get("descripcion") or "")
+                if t.get("referencia"):
+                    ET.SubElement(tema_elem, "referencia").text = str(t["referencia"])
+        target = root
+    else:
+        root = ET.Element("libro", attrib={"isbn": str(data.get("isbn") or "")})
+        ET.SubElement(root, "nombre_libro").text = str(data.get("nombre_libro") or "")
+        temas_elem = ET.SubElement(root, "temas")
+        for t in data.get("temas", []):
+            tema_elem = ET.SubElement(temas_elem, "tema")
+            ET.SubElement(tema_elem, "nombre").text = str(t.get("tema") or "")
+            ET.SubElement(tema_elem, "descripcion").text = str(t.get("descripcion") or "")
+            if t.get("referencia"):
+                ET.SubElement(tema_elem, "referencia").text = str(t["referencia"])
+        target = root
+
+    ET.indent(target, space="  ")
+    return ET.tostring(target, encoding="utf-8", xml_declaration=True).decode("utf-8")
+
 # ==============================================================================
 # ENDPOINTS GENERALES
 # ==============================================================================
@@ -260,6 +292,8 @@ def index():
         "endpoints": {
             "get_all_books": "GET /books",
             "get_book_by_isbn": "GET /books/<isbn>",
+            "get_book_topics": "GET /books/<isbn>/temas",
+            "get_all_books_topics": "GET /books/temas",
             "search_books": "GET /books/search?q=...&genre=...&year=...",
             "create_book": "POST /books",
             "update_book": "PUT /books/<isbn>",
@@ -521,6 +555,188 @@ def get_book_by_isbn(isbn):
         if format_type == "XML":
             return Response(serialize_error_to_xml("Error al consultar el libro", {"details": str(e)}), status=500, mimetype="application/xml")
         return jsonify({"error": "Error al consultar el libro", "details": str(e)}), 500
+
+# ==============================================================================
+# ENDPOINTS DE TEMAS Y CONCEPTOS (ESQUEMA 4FN)
+# ==============================================================================
+
+@app.route("/books/<string:isbn>/temas", methods=["GET"])
+@app.route("/books/<string:isbn>/temas/", methods=["GET"])
+@app.route("/books/<string:isbn>/topics", methods=["GET"])
+@app.route("/books/<string:isbn>/topics/", methods=["GET"])
+def get_book_topics(isbn):
+    """
+    Obtener nombre del libro, ISBN, temas que maneja y la descripción de cada tema
+    ---
+    tags:
+      - Books
+    produces:
+      - application/json
+      - application/xml
+    parameters:
+      - name: isbn
+        in: path
+        type: string
+        required: true
+        description: Código ISBN del libro (ej. 978-1491973042)
+      - name: format
+        in: query
+        type: string
+        enum: [JSON, XML, json, xml]
+        default: JSON
+        description: Formato de respuesta deseado (JSON o XML)
+    responses:
+      200:
+        description: Nombre del libro, ISBN y lista de temas con sus descripciones
+      404:
+        description: Libro no encontrado
+      500:
+        description: Error interno del servidor
+    """
+    format_type = request.args.get("format", "JSON").strip().upper()
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                # 1. Obtener datos del libro por ISBN
+                cur.execute("SELECT id, title, isbn FROM books WHERE isbn = %s;", (isbn.strip(),))
+                book = cur.fetchone()
+                if not book:
+                    if format_type == "XML":
+                        return Response(serialize_error_to_xml("Libro no encontrado", {"isbn": isbn}), status=404, mimetype="application/xml")
+                    return jsonify({"error": "Libro no encontrado", "isbn": isbn}), 404
+
+                book_id = book["id"]
+
+                # 2. Detectar dinámicamente columnas en book_concepts para compatibilidad con el esquema
+                cur.execute("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'book_concepts' AND column_name IN ('definition', 'specific_definition');
+                """)
+                c_cols = [r["column_name"] for r in cur.fetchall()]
+                if "definition" in c_cols and "specific_definition" in c_cols:
+                    def_expr = "COALESCE(bc.definition, bc.specific_definition, c.general_summary)"
+                elif "specific_definition" in c_cols:
+                    def_expr = "COALESCE(bc.specific_definition, c.general_summary)"
+                else:
+                    def_expr = "COALESCE(bc.definition, c.general_summary)"
+
+                # 3. Consultar temas asociados y su descripción
+                cur.execute(f"""
+                    SELECT 
+                        c.name AS tema,
+                        {def_expr} AS descripcion,
+                        bc.chapter_page AS referencia
+                    FROM book_concepts bc
+                    JOIN concepts c ON bc.concept_id = c.id
+                    WHERE bc.book_id = %s
+                    ORDER BY c.name ASC;
+                """, (book_id,))
+                topics = cur.fetchall()
+
+                result = {
+                    "nombre_libro": book["title"],
+                    "isbn": book["isbn"],
+                    "total_temas": len(topics),
+                    "temas": serialize_record(topics)
+                }
+
+                if format_type == "XML":
+                    xml_content = serialize_book_topics_to_xml(result)
+                    return Response(xml_content, status=200, mimetype="application/xml")
+
+                return jsonify(result), 200
+    except Exception as e:
+        if format_type == "XML":
+            return Response(serialize_error_to_xml("Error al consultar temas del libro", {"details": str(e)}), status=500, mimetype="application/xml")
+        return jsonify({"error": "Error al consultar temas del libro", "details": str(e)}), 500
+
+@app.route("/books/temas", methods=["GET"])
+@app.route("/books/temas/", methods=["GET"])
+@app.route("/books/topics", methods=["GET"])
+@app.route("/books/topics/", methods=["GET"])
+def get_all_books_topics():
+    """
+    Obtener todos los libros con sus temas y descripciones
+    ---
+    tags:
+      - Books
+    produces:
+      - application/json
+      - application/xml
+    parameters:
+      - name: isbn
+        in: query
+        type: string
+        description: Filtro opcional por ISBN
+      - name: format
+        in: query
+        type: string
+        enum: [JSON, XML, json, xml]
+        default: JSON
+        description: Formato de respuesta deseado (JSON o XML)
+    responses:
+      200:
+        description: Lista de libros con nombre, ISBN y sus temas con descripciones
+      500:
+        description: Error interno del servidor
+    """
+    isbn_param = request.args.get("isbn")
+    if isbn_param:
+        return get_book_topics(isbn_param.strip())
+
+    format_type = request.args.get("format", "JSON").strip().upper()
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, title, isbn FROM books ORDER BY id ASC;")
+                books = cur.fetchall()
+
+                cur.execute("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'book_concepts' AND column_name IN ('definition', 'specific_definition');
+                """)
+                c_cols = [r["column_name"] for r in cur.fetchall()]
+                if "definition" in c_cols and "specific_definition" in c_cols:
+                    def_expr = "COALESCE(bc.definition, bc.specific_definition, c.general_summary)"
+                elif "specific_definition" in c_cols:
+                    def_expr = "COALESCE(bc.specific_definition, c.general_summary)"
+                else:
+                    def_expr = "COALESCE(bc.definition, c.general_summary)"
+
+                results = []
+                for b in books:
+                    cur.execute(f"""
+                        SELECT 
+                            c.name AS tema,
+                            {def_expr} AS descripcion,
+                            bc.chapter_page AS referencia
+                        FROM book_concepts bc
+                        JOIN concepts c ON bc.concept_id = c.id
+                        WHERE bc.book_id = %s
+                        ORDER BY c.name ASC;
+                    """, (b["id"],))
+                    topics = cur.fetchall()
+                    results.append({
+                        "nombre_libro": b["title"],
+                        "isbn": b["isbn"],
+                        "total_temas": len(topics),
+                        "temas": serialize_record(topics)
+                    })
+
+                if format_type == "XML":
+                    xml_content = serialize_book_topics_to_xml(results)
+                    return Response(xml_content, status=200, mimetype="application/xml")
+
+                return jsonify({
+                    "count": len(results),
+                    "libros": results
+                }), 200
+    except Exception as e:
+        if format_type == "XML":
+            return Response(serialize_error_to_xml("Error al consultar temas de los libros", {"details": str(e)}), status=500, mimetype="application/xml")
+        return jsonify({"error": "Error al consultar temas de los libros", "details": str(e)}), 500
 
 @app.route("/books/search", methods=["GET"])
 @app.route("/books/search/", methods=["GET"])
