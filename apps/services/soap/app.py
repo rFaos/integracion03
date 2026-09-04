@@ -11,7 +11,8 @@ import os
 import sys
 from decimal import Decimal
 from datetime import datetime, date
-from flask import Flask, request, jsonify
+import xml.etree.ElementTree as ET
+from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 from flasgger import Swagger
 from dotenv import load_dotenv
@@ -108,6 +109,134 @@ def serialize_record(record):
         return new_dict
     return record
 
+def serialize_book_to_xml_element(book_data):
+    """
+    Convierte un diccionario de libro a un elemento XML <book isbn="...">
+    siguiendo la estructura canónica de library.xml / library03.xml.
+    """
+    isbn = str(book_data.get("isbn") or "")
+    book_elem = ET.Element("book", attrib={"isbn": isbn})
+    
+    title_elem = ET.SubElement(book_elem, "title")
+    title_elem.text = str(book_data.get("title") or "")
+    
+    authors_elem = ET.SubElement(book_elem, "authors")
+    raw_authors = book_data.get("authors")
+    if isinstance(raw_authors, list):
+        for a in raw_authors:
+            a_name = a.get("name") if isinstance(a, dict) else str(a)
+            if a_name:
+                auth_elem = ET.SubElement(authors_elem, "author")
+                auth_elem.text = str(a_name)
+    elif isinstance(raw_authors, str) and raw_authors:
+        for a_name in raw_authors.split(","):
+            if a_name.strip():
+                auth_elem = ET.SubElement(authors_elem, "author")
+                auth_elem.text = a_name.strip()
+                
+    pub_year = book_data.get("publication_year")
+    if pub_year is not None:
+        ET.SubElement(book_elem, "publication_year").text = str(pub_year)
+        
+    price = book_data.get("price")
+    if price is not None:
+        try:
+            price_val = f"{float(price):.2f}"
+        except (ValueError, TypeError):
+            price_val = str(price)
+        ET.SubElement(book_elem, "price", attrib={"currency": "USD"}).text = price_val
+        
+    stock = book_data.get("stock")
+    if stock is not None:
+        ET.SubElement(book_elem, "stock").text = str(stock)
+        
+    fmt = book_data.get("format_name") or book_data.get("format")
+    if fmt:
+        ET.SubElement(book_elem, "format").text = str(fmt)
+        
+    cat = book_data.get("category_name") or book_data.get("category")
+    if cat:
+        ET.SubElement(book_elem, "category").text = str(cat)
+        
+    genres_elem = ET.SubElement(book_elem, "genres")
+    raw_genres = book_data.get("genres")
+    if isinstance(raw_genres, list):
+        for g in raw_genres:
+            g_name = g.get("name") if isinstance(g, dict) else str(g)
+            if g_name:
+                ET.SubElement(genres_elem, "genre").text = str(g_name)
+    elif isinstance(raw_genres, str) and raw_genres:
+        for g_name in raw_genres.split(","):
+            if g_name.strip():
+                ET.SubElement(genres_elem, "genre").text = g_name.strip()
+                
+    cover_image = book_data.get("cover_image")
+    if not cover_image and isinstance(book_data.get("images"), list):
+        for img in book_data["images"]:
+            if isinstance(img, dict) and img.get("is_cover"):
+                cover_image = img.get("image_url")
+                break
+        if not cover_image and book_data["images"]:
+            first_img = book_data["images"][0]
+            if isinstance(first_img, dict):
+                cover_image = first_img.get("image_url")
+    if cover_image:
+        ET.SubElement(book_elem, "cover_image").text = str(cover_image)
+        
+    raw_concepts = book_data.get("concepts")
+    if isinstance(raw_concepts, list) and raw_concepts:
+        concepts_elem = ET.SubElement(book_elem, "concepts")
+        for c in raw_concepts:
+            if isinstance(c, dict):
+                c_name = c.get("concept_name") or c.get("name") or ""
+                c_def = c.get("definition") or c.get("specific_definition") or ""
+                c_page = c.get("chapter_page") or ""
+                concept_elem = ET.SubElement(concepts_elem, "concept", attrib={"name": str(c_name)})
+                ET.SubElement(concept_elem, "definition").text = str(c_def)
+                if c_page:
+                    ET.SubElement(concept_elem, "chapter_page").text = str(c_page)
+                    
+    return book_elem
+
+def serialize_books_to_xml(books_list):
+    """
+    Serializa una lista de libros a un documento XML con elemento raíz <library>.
+    """
+    root = ET.Element("library")
+    for b in books_list:
+        root.append(serialize_book_to_xml_element(b))
+    ET.indent(root, space="  ")
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True).decode("utf-8")
+
+def serialize_single_book_to_xml(book_data, wrap_library=False):
+    """
+    Serializa un libro individual a XML. Por defecto elemento raíz <book isbn="...">
+    o envuelto en <library> si wrap_library=True.
+    """
+    elem = serialize_book_to_xml_element(book_data)
+    if wrap_library:
+        root = ET.Element("library")
+        root.append(elem)
+        target = root
+    else:
+        target = elem
+    ET.indent(target, space="  ")
+    return ET.tostring(target, encoding="utf-8", xml_declaration=True).decode("utf-8")
+
+def serialize_error_to_xml(message, extra=None):
+    """
+    Serializa un mensaje de error a XML.
+    """
+    root = ET.Element("error")
+    msg_elem = ET.SubElement(root, "message")
+    msg_elem.text = str(message)
+    if extra and isinstance(extra, dict):
+        for k, v in extra.items():
+            sub = ET.SubElement(root, str(k))
+            sub.text = str(v)
+    ET.indent(root, space="  ")
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True).decode("utf-8")
+
 # ==============================================================================
 # ENDPOINTS GENERALES
 # ==============================================================================
@@ -175,28 +304,37 @@ def health_check():
 # ==============================================================================
 
 @app.route("/books", methods=["GET"])
+@app.route("/books/", methods=["GET"])
 def get_books():
     """
-    Obtener todos los libros con autores, géneros, formatos y categorías
+    Obtener todos los libros con autores, géneros, formatos y categorías (Soporta JSON y XML)
     ---
     tags:
       - Books
+    produces:
+      - application/json
+      - application/xml
+    parameters:
+      - name: format
+        in: query
+        type: string
+        enum: [JSON, XML, json, xml]
+        default: JSON
+        description: Formato de respuesta deseado (JSON o XML)
+      - name: isbn
+        in: query
+        type: string
+        description: Filtro opcional por código ISBN
     responses:
       200:
-        description: Lista completa de libros
-        schema:
-          type: object
-          properties:
-            count:
-              type: integer
-            books:
-              type: array
-              items:
-                type: object
+        description: Lista completa de libros en formato JSON o XML
       500:
         description: Error interno del servidor o base de datos
     """
-    query = """
+    format_type = request.args.get("format", "JSON").strip().upper()
+    isbn_param = request.args.get("isbn")
+
+    query_base = """
         SELECT 
             b.id,
             b.isbn,
@@ -228,42 +366,71 @@ def get_books():
         FROM books b
         JOIN formats f ON b.format_id = f.id
         JOIN categories c ON b.category_id = c.id
-        ORDER BY b.id ASC;
     """
+    params = []
+    if isbn_param:
+        query_base += " WHERE b.isbn = %s"
+        params.append(isbn_param.strip())
+
+    query_base += " ORDER BY b.id ASC;"
+
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(query)
+                cur.execute(query_base, tuple(params) if params else None)
                 books = cur.fetchall()
                 serialized = serialize_record(books)
+
+                if format_type == "XML":
+                    xml_content = serialize_books_to_xml(serialized)
+                    return Response(xml_content, status=200, mimetype="application/xml")
+
                 return jsonify({
                     "count": len(serialized),
                     "books": serialized
                 }), 200
     except Exception as e:
+        if format_type == "XML":
+            return Response(serialize_error_to_xml("Error al consultar los libros", {"details": str(e)}), status=500, mimetype="application/xml")
         return jsonify({"error": "Error al consultar los libros", "details": str(e)}), 500
 
 @app.route("/books/<string:isbn>", methods=["GET"])
+@app.route("/books/<string:isbn>/", methods=["GET"])
 def get_book_by_isbn(isbn):
     """
-    Obtener el detalle completo de un libro por su ISBN (incluyendo autores, géneros, imágenes y conceptos 4FN)
+    Obtener el detalle completo de un libro por su ISBN (Soporta JSON y XML)
     ---
     tags:
       - Books
+    produces:
+      - application/json
+      - application/xml
     parameters:
       - name: isbn
         in: path
         type: string
         required: true
         description: Código ISBN del libro (ej. 978-1491973042)
+      - name: format
+        in: query
+        type: string
+        enum: [JSON, XML, json, xml]
+        default: JSON
+        description: Formato de respuesta deseado (JSON o XML)
+      - name: wrap
+        in: query
+        type: string
+        description: "Si es 'library', envuelve el libro en el elemento raíz <library>"
     responses:
       200:
-        description: Detalle exhaustivo del libro
+        description: Detalle exhaustivo del libro en formato JSON o XML
       404:
         description: Libro no encontrado
       500:
         description: Error interno del servidor
     """
+    format_type = request.args.get("format", "JSON").strip().upper()
+    wrap_lib = request.args.get("wrap", "").strip().lower() == "library" or request.args.get("root", "").strip().lower() == "library"
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
@@ -278,6 +445,8 @@ def get_book_by_isbn(isbn):
                 book = cur.fetchone()
 
                 if not book:
+                    if format_type == "XML":
+                        return Response(serialize_error_to_xml("Libro no encontrado", {"isbn": isbn}), status=404, mimetype="application/xml")
                     return jsonify({"error": "Libro no encontrado", "isbn": isbn}), 404
 
                 book_id = book["id"]
@@ -328,18 +497,29 @@ def get_book_by_isbn(isbn):
                 full_book["genres"] = genres
                 full_book["images"] = images
                 full_book["concepts"] = concepts
+                serialized = serialize_record(full_book)
 
-                return jsonify(serialize_record(full_book)), 200
+                if format_type == "XML":
+                    xml_content = serialize_single_book_to_xml(serialized, wrap_library=wrap_lib)
+                    return Response(xml_content, status=200, mimetype="application/xml")
+
+                return jsonify(serialized), 200
     except Exception as e:
+        if format_type == "XML":
+            return Response(serialize_error_to_xml("Error al consultar el libro", {"details": str(e)}), status=500, mimetype="application/xml")
         return jsonify({"error": "Error al consultar el libro", "details": str(e)}), 500
 
 @app.route("/books/search", methods=["GET"])
+@app.route("/books/search/", methods=["GET"])
 def search_books():
     """
-    Búsqueda avanzada de libros por filtros multi-criterio
+    Búsqueda avanzada de libros por filtros multi-criterio (Soporta JSON y XML)
     ---
     tags:
       - Books
+    produces:
+      - application/json
+      - application/xml
     parameters:
       - name: q
         in: query
@@ -365,12 +545,19 @@ def search_books():
         in: query
         type: number
         description: Precio máximo
+      - name: format
+        in: query
+        type: string
+        enum: [JSON, XML, json, xml]
+        default: JSON
+        description: Formato de respuesta deseado (JSON o XML)
     responses:
       200:
-        description: Resultados de la búsqueda
+        description: Resultados de la búsqueda en formato JSON o XML
       500:
         description: Error interno del servidor
     """
+    format_type = request.args.get("format", "JSON").strip().upper()
     q = request.args.get("q", "").strip()
     author = request.args.get("author", "").strip()
     genre = request.args.get("genre", "").strip()
@@ -457,15 +644,23 @@ def search_books():
                 cur.execute(final_query, tuple(params))
                 results = cur.fetchall()
                 serialized = serialize_record(results)
+
+                if format_type == "XML":
+                    xml_content = serialize_books_to_xml(serialized)
+                    return Response(xml_content, status=200, mimetype="application/xml")
+
                 return jsonify({
                     "query_params": {
                         "q": q, "author": author, "genre": genre,
-                        "year": year, "min_price": min_price, "max_price": max_price
+                        "year": year, "min_price": min_price, "max_price": max_price,
+                        "format": format_type
                     },
                     "count": len(serialized),
                     "results": serialized
                 }), 200
     except Exception as e:
+        if format_type == "XML":
+            return Response(serialize_error_to_xml("Error en la búsqueda de libros", {"details": str(e)}), status=500, mimetype="application/xml")
         return jsonify({"error": "Error en la búsqueda de libros", "details": str(e)}), 500
 
 @app.route("/books", methods=["POST"])
