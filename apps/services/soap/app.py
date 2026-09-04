@@ -482,8 +482,21 @@ def get_book_by_isbn(isbn):
 
                 # 5. Obtener conceptos contextuales asociados (4FN)
                 cur.execute("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'book_concepts' AND column_name IN ('definition', 'specific_definition');
+                """)
+                concept_cols = [r["column_name"] for r in cur.fetchall()]
+                if "definition" in concept_cols and "specific_definition" in concept_cols:
+                    def_expr = "COALESCE(bc.definition, bc.specific_definition) AS definition"
+                elif "specific_definition" in concept_cols:
+                    def_expr = "bc.specific_definition AS definition"
+                else:
+                    def_expr = "bc.definition AS definition"
+
+                cur.execute(f"""
                     SELECT c.id AS concept_id, c.name AS concept_name, c.general_summary, 
-                           COALESCE(bc.definition, bc.specific_definition) AS definition, 
+                           {def_expr}, 
                            bc.chapter_page
                     FROM book_concepts bc
                     JOIN concepts c ON bc.concept_id = c.id
@@ -811,17 +824,39 @@ def create_book():
                         """, (new_book_id, img_url, alt, is_cov))
 
                 # 5. Asociar conceptos
+                cur.execute("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'book_concepts' AND column_name IN ('definition', 'specific_definition');
+                """)
+                c_cols = [r["column_name"] for r in cur.fetchall()]
+
                 for con in concepts:
                     c_id = con.get("concept_id")
                     c_def = con.get("definition") or con.get("specific_definition", "")
                     c_page = con.get("chapter_page", "")
                     if c_id and c_def:
-                        cur.execute("""
-                            INSERT INTO book_concepts (book_id, concept_id, definition, specific_definition, chapter_page)
-                            VALUES (%s, %s, %s, %s, %s)
-                            ON CONFLICT (book_id, concept_id)
-                            DO UPDATE SET definition = EXCLUDED.definition, specific_definition = EXCLUDED.specific_definition, chapter_page = EXCLUDED.chapter_page;
-                        """, (new_book_id, int(c_id), c_def, c_def, c_page))
+                        if "definition" in c_cols and "specific_definition" in c_cols:
+                            cur.execute("""
+                                INSERT INTO book_concepts (book_id, concept_id, definition, specific_definition, chapter_page)
+                                VALUES (%s, %s, %s, %s, %s)
+                                ON CONFLICT (book_id, concept_id)
+                                DO UPDATE SET definition = EXCLUDED.definition, specific_definition = EXCLUDED.specific_definition, chapter_page = EXCLUDED.chapter_page;
+                            """, (new_book_id, int(c_id), c_def, c_def, c_page))
+                        elif "specific_definition" in c_cols:
+                            cur.execute("""
+                                INSERT INTO book_concepts (book_id, concept_id, specific_definition, chapter_page)
+                                VALUES (%s, %s, %s, %s)
+                                ON CONFLICT (book_id, concept_id)
+                                DO UPDATE SET specific_definition = EXCLUDED.specific_definition, chapter_page = EXCLUDED.chapter_page;
+                            """, (new_book_id, int(c_id), c_def, c_page))
+                        else:
+                            cur.execute("""
+                                INSERT INTO book_concepts (book_id, concept_id, definition, chapter_page)
+                                VALUES (%s, %s, %s, %s)
+                                ON CONFLICT (book_id, concept_id)
+                                DO UPDATE SET definition = EXCLUDED.definition, chapter_page = EXCLUDED.chapter_page;
+                            """, (new_book_id, int(c_id), c_def, c_page))
 
             conn.commit()
 
