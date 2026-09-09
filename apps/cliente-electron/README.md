@@ -8,7 +8,7 @@
 ---
 
 ## 1. Descripción
-Aplicación de escritorio construida sobre **Electron** que consume **exclusivamente datos en formato XML** provenientes del microservicio desplegado en Google Cloud Platform (`http://34.51.75.114:5001/books/temas?format=XML`).
+Aplicación de escritorio construida sobre **Electron** que consume **exclusivamente datos en formato XML** provenientes del microservicio desplegado en Google Cloud Platform (`http://34.51.23.80:5001/books/temas?format=XML`).
 
 Permite al usuario ingresar su Nombre y Apellido, escribir frases o descripciones técnicas de Cloud Computing y clasificarlas automáticamente en uno de los 4 modelos principales:
 - **IaaS (Infrastructure as a Service)**

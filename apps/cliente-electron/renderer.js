@@ -18,7 +18,7 @@
  * 4. Maneja CORS y ofrece compatibilidad con sobres SOAP (Sesión 04).
  */
 
-const DEFAULT_CLOUD_URL = "http://34.51.75.114:5001";
+const DEFAULT_CLOUD_URL = "http://34.51.23.80:5001";
 const LOCALHOST_URL = "http://127.0.0.1:5000";
 
 const CLOUD_LEXICON = {
