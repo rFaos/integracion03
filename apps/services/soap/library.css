@@ -1,0 +1,185 @@
+﻿/* ==============================================================================
+   SC3705 INTEGRACIÓN DE APLICACIONES COMPUTACIONALES - SESIÓN 04a
+   Hoja de estilos obligatoria: library.css
+   Directiva de vinculación: <?xml-stylesheet type=text/css href=library.css?>
+   Autor: Fabián Azaed Orta Singlaterry (Matrícula: 613504)
+   Universidad de Monterrey (UDEM)
+   ============================================================================== */
+
+/* 1. Estilizar el contenedor principal (library) */
+library {
+  display: block;
+  width: 100%;
+  background-color: #f0f0f0;
+  padding: 20px;
+  box-sizing: border-box;
+  font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
+}
+
+library::before {
+  content: Catálogo de Libros - XML con Estilos CSS (SC3705 UDEM);
+  display: block;
+  font-size: 1.5em;
+  font-weight: bold;
+  color: #333333;
+  margin-bottom: 15px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #999999;
+}
+
+/* 2. Estilizar la caja que contiene todos los libros (books) */
+books {
+  display: block;
+  width: 100%;
+  background-color: #cccccc;
+  padding: 15px;
+  margin-bottom: 20px;
+  box-sizing: border-box;
+  border-radius: 4px;
+}
+
+/* 3. Estilizar cada libro individual (book) */
+book {
+  display: block;
+  width: 100%;
+  background-color: #e0e0e0;
+  border: 1px solid #999;
+  padding: 10px;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+  border-radius: 4px;
+}
+
+book::before {
+  content: ISBN:  attr(isbn);
+  display: block;
+  font-size: 0.85em;
+  color: #444;
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+/* 4. Estilizar los elementos dentro de cada libro */
+
+/* Título (title): 1.2em, negrita, margen inferior de 5px */
+title {
+  display: block;
+  font-size: 1.2em;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #111111;
+}
+
+/* Autor o autores (author): cursiva, margen inferior de 5px */
+author {
+  display: block;
+  font-style: italic;
+  margin-bottom: 5px;
+  color: #333333;
+}
+
+author::before {
+  content: Autor: ;
+  font-style: normal;
+  font-weight: 600;
+}
+
+/* Género (genre): bloque, margen inferior 3px, color #666 */
+genre {
+  display: block;
+  margin-bottom: 3px;
+  color: #666;
+}
+
+genre::before {
+  content: Género: ;
+  font-weight: 600;
+}
+
+/* Precio (price): bloque, margen inferior 3px, color #009900 */
+price {
+  display: block;
+  margin-bottom: 3px;
+  color: #009900;
+  font-weight: bold;
+}
+
+price::before {
+  content: Precio: $;
+}
+
+/* Disponibilidad en stock (stock): bloque, margen inferior 3px, color #ff0000 */
+stock {
+  display: block;
+  margin-bottom: 3px;
+  color: #ff0000;
+  font-weight: bold;
+}
+
+stock::before {
+  content: Disponibilidad (Stock): ;
+}
+
+/* Formato (format): bloque, margen inferior 3px, color #0000ff */
+format {
+  display: block;
+  margin-bottom: 3px;
+  color: #0000ff;
+  font-weight: bold;
+}
+
+format::before {
+  content: Formato: ;
+}
+
+/* Elementos adicionales de catálogo: año, categoría, conceptos */
+publication_year {
+  display: block;
+  margin-bottom: 3px;
+  color: #555555;
+  font-size: 0.9em;
+}
+
+publication_year::before {
+  content: Año: ;
+  font-weight: 600;
+}
+
+category {
+  display: block;
+  margin-bottom: 3px;
+  color: #4b5563;
+  font-size: 0.9em;
+}
+
+category::before {
+  content: Categoría: ;
+  font-weight: 600;
+}
+
+concepts {
+  display: block;
+  margin-top: 8px;
+  padding: 8px;
+  background-color: #f7f7f7;
+  border-left: 3px solid #0000ff;
+}
+
+concepts::before {
+  content: Conceptos Clave:;
+  display: block;
+  font-weight: bold;
+  font-size: 0.9em;
+  margin-bottom: 4px;
+}
+
+concept {
+  display: block;
+  font-size: 0.85em;
+  margin-bottom: 4px;
+}
+
+concept::before {
+  content: •  attr(name) : ;
+  font-weight: bold;
+}

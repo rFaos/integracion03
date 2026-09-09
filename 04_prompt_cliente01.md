@@ -1,0 +1,5 @@
+1.- Tomando en consideracion el microservicio /apps/services/soap/app.py escribe una aplicacion de escritorio basada en Electron que consuma exclusivamente peticiones en XML. El microservicio sirve en una instancia en la nube y la aplicacion de escritorio correra en mi maquina local, toa en consideracion CORS.
+
+2.- La aplicacion de escritorio basada en Electron debera pedir: el nombre y apellido del usuario y proporcionar un campo de texto donde pueda escribir palabras, fraases o una descripcion relacionad con los libros con los temas relacionados a Cloud Computing. La aplicacion debera analizar el texto introducido consumir el endpoint y determinar si corresponde principalmente a uno de los siguientes modelos de servicios Cloud: Iaas, PaaS, SaaS o FaaS. Organiza el codigo utilizando funciones o metodos independientes para cada categoria y agrega comentarios que expliquen las principales partes de la solucion.
+
+3.- deposita la aplicacion en apps/

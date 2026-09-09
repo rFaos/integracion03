@@ -168,3 +168,26 @@ INSERT INTO book_images (book_id, image_url, alt_text, is_cover) VALUES
 (8, 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=400', 'The Phoenix Project', TRUE),
 (9, 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400', 'Computer Networks', TRUE),
 (10, 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400', 'Operating Systems', TRUE);
+
+-- 12. Datos Semilla para Módulo SOAP & Clasificación Cloud (SC3705 - Sesión 04)
+INSERT INTO clasificadores (id, nombre, apellidos, correo) VALUES
+(1, 'Fabián Azaed', 'Orta Singlaterry', 'azaedorta@hotmail.com'),
+(2, 'Raúl', 'Morales Salcedo', 'raul.moraless@udem.edu'),
+(3, 'Evaluador', 'Pruebas Automatizadas', 'evaluador.qa@udem.edu')
+ON CONFLICT (correo) DO NOTHING;
+
+SELECT setval('clasificadores_id_seq', (SELECT COALESCE(MAX(id), 1) FROM clasificadores));
+
+INSERT INTO clasificaciones_cloud (clasificador_id, isbn, concept_id, texto_evaluado, modelo_cloud, justificacion) VALUES
+(1, '978-1492056010', 1, 'Aprovisionamiento de máquinas virtuales, VPC y redes bajo demanda.', 'IaaS', 'Corresponde a infraestructura base como servicio con control de SO y redes.'),
+(1, '978-1492056010', 2, 'Google App Engine y runtime administrado para desplegar aplicaciones sin gestionar servidores.', 'PaaS', 'Plataforma preconfigurada de ejecución donde el proveedor gestiona el SO y runtime.'),
+(1, '978-1492056010', 3, 'Google Workspace, CRM y suites de ofimática consumidas por navegador.', 'SaaS', 'Software completamente empaquetado y suministrado al usuario final.'),
+(1, '978-1492056010', 4, 'Cloud Functions activadas por eventos HTTP o triggers Pub/Sub con escala a cero.', 'FaaS', 'Ejecución de código orientado a eventos sin gestión de servidores.')
+ON CONFLICT (clasificador_id, concept_id) DO NOTHING;
+
+INSERT INTO clientes_servidos (tipo_cliente, endpoint_consultado, formato_solicitado, peticiones_servidas, ip_origen) VALUES
+('Electron Desktop XML', '/books/temas?format=XML', 'XML', 24, '127.0.0.1'),
+('SOAP Client Python', '/soap', 'SOAP-XML', 18, '127.0.0.1'),
+('Web Browser REST', '/books?format=JSON', 'JSON', 35, '34.51.75.114'),
+('Swagger UI / Flasgger', '/docs', 'JSON', 12, '127.0.0.1');
+

@@ -269,6 +269,30 @@ def serialize_book_topics_to_xml(data):
     ET.indent(target, space="  ")
     return ET.tostring(target, encoding="utf-8", xml_declaration=True).decode("utf-8")
 
+def registrar_cliente_servido(tipo_cliente, endpoint, formato):
+    """
+    Registra métricas de auditoría en la tabla clientes_servidos (SC3705 - Sesión 04).
+    """
+    try:
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr or "127.0.0.1").split(",")[0].strip()
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_schema = 'public' AND table_name = 'clientes_servidos'
+                    );
+                """)
+                table_exists = cur.fetchone()
+                if table_exists and table_exists["exists"]:
+                    cur.execute("""
+                        INSERT INTO clientes_servidos (tipo_cliente, endpoint_consultado, formato_solicitado, peticiones_servidas, ip_origen, ultima_peticion)
+                        VALUES (%s, %s, %s, 1, %s, NOW());
+                    """, (tipo_cliente, endpoint, formato, ip))
+                    conn.commit()
+    except Exception:
+        pass
+
 # ==============================================================================
 # ENDPOINTS GENERALES
 # ==============================================================================
@@ -339,6 +363,8 @@ def health_check():
 
 @app.route("/books", methods=["GET"])
 @app.route("/books/", methods=["GET"])
+@app.route("/api/books", methods=["GET"])
+@app.route("/api/books/", methods=["GET"])
 def get_books():
     """
     Obtener todos los libros con autores, géneros, formatos y categorías (Soporta JSON y XML)
@@ -430,6 +456,8 @@ def get_books():
 
 @app.route("/books/<string:isbn>", methods=["GET"])
 @app.route("/books/<string:isbn>/", methods=["GET"])
+@app.route("/api/book/<string:isbn>", methods=["GET"])
+@app.route("/api/book/<string:isbn>/", methods=["GET"])
 def get_book_by_isbn(isbn):
     """
     Obtener el detalle completo de un libro por su ISBN (Soporta JSON y XML)
@@ -555,6 +583,105 @@ def get_book_by_isbn(isbn):
         if format_type == "XML":
             return Response(serialize_error_to_xml("Error al consultar el libro", {"details": str(e)}), status=500, mimetype="application/xml")
         return jsonify({"error": "Error al consultar el libro", "details": str(e)}), 500
+
+@app.route("/api/book/author/<int:author_id>", methods=["GET"])
+@app.route("/api/book/author/<int:author_id>/", methods=["GET"])
+@app.route("/books/author/<int:author_id>", methods=["GET"])
+@app.route("/books/author/<int:author_id>/", methods=["GET"])
+def get_books_by_author(author_id):
+    """
+    Obtener todos los libros escritos por un autor específico (SC3705 - Sesión 04a)
+    ---
+    tags:
+      - Books
+    produces:
+      - application/json
+      - application/xml
+    parameters:
+      - name: author_id
+        in: path
+        type: integer
+        required: true
+        description: Identificador numérico del autor
+      - name: format
+        in: query
+        type: string
+        enum: [JSON, XML, json, xml]
+        default: JSON
+        description: Formato de respuesta deseado (JSON o XML)
+    responses:
+      200:
+        description: Metadatos del autor y catálogo de sus obras
+      404:
+        description: Autor no encontrado
+      500:
+        description: Error interno del servidor
+    """
+    format_type = request.args.get("format", "JSON").strip().upper()
+    registrar_cliente_servido("REST Client", f"/api/book/author/{author_id}", format_type)
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, name, biography, country FROM authors WHERE id = %s;", (author_id,))
+                author = cur.fetchone()
+                if not author:
+                    msg = f"Autor con ID {author_id} no encontrado en catálogo"
+                    if format_type == "XML":
+                        return Response(serialize_error_to_xml(msg), status=404, mimetype="application/xml")
+                    return jsonify({"error": msg}), 404
+
+                cur.execute("""
+                    SELECT b.id, b.isbn, b.title, b.publication_year, b.price, b.stock,
+                           f.name AS format_name, c.name AS category_name,
+                           COALESCE(
+                               (SELECT image_url FROM book_images WHERE book_id = b.id AND is_cover = TRUE LIMIT 1),
+                               (SELECT image_url FROM book_images WHERE book_id = b.id LIMIT 1),
+                               'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400'
+                           ) AS cover_image
+                    FROM books b
+                    JOIN book_authors ba ON b.id = ba.book_id
+                    JOIN formats f ON b.format_id = f.id
+                    JOIN categories c ON b.category_id = c.id
+                    WHERE ba.author_id = %s
+                    ORDER BY b.publication_year DESC;
+                """, (author_id,))
+                books = cur.fetchall()
+
+                data = {
+                    "author": dict(author),
+                    "total_books": len(books),
+                    "books": [dict(b) for b in books]
+                }
+                serialized = serialize_record(data)
+
+                if format_type == "XML":
+                    root = ET.Element("author_catalog", attrib={"author_id": str(author_id)})
+                    auth_elem = ET.SubElement(root, "author")
+                    ET.SubElement(auth_elem, "name").text = str(author["name"])
+                    if author.get("country"):
+                        ET.SubElement(auth_elem, "country").text = str(author["country"])
+                    if author.get("biography"):
+                        ET.SubElement(auth_elem, "biography").text = str(author["biography"])
+                    books_elem = ET.SubElement(root, "books", attrib={"count": str(len(books))})
+                    for b in serialized["books"]:
+                        b_elem = ET.SubElement(books_elem, "book", attrib={"isbn": str(b.get("isbn") or "")})
+                        ET.SubElement(b_elem, "title").text = str(b.get("title") or "")
+                        ET.SubElement(b_elem, "publication_year").text = str(b.get("publication_year") or "")
+                        ET.SubElement(b_elem, "price", attrib={"currency": "USD"}).text = f"{float(b.get('price', 0)):.2f}"
+                        ET.SubElement(b_elem, "stock").text = str(b.get("stock") or "")
+                        ET.SubElement(b_elem, "format").text = str(b.get("format_name") or "")
+                        ET.SubElement(b_elem, "category").text = str(b.get("category_name") or "")
+                        if b.get("cover_image"):
+                            ET.SubElement(b_elem, "cover_image").text = str(b["cover_image"])
+                    ET.indent(root, space="  ")
+                    xml_str = ET.tostring(root, encoding="utf-8", xml_declaration=True).decode("utf-8")
+                    return Response(xml_str, status=200, mimetype="application/xml")
+
+                return jsonify(serialized), 200
+    except Exception as e:
+        if format_type == "XML":
+            return Response(serialize_error_to_xml("Error al consultar libros del autor", {"details": str(e)}), status=500, mimetype="application/xml")
+        return jsonify({"error": "Error al consultar libros del autor", "details": str(e)}), 500
 
 # ==============================================================================
 # ENDPOINTS DE TEMAS Y CONCEPTOS (ESQUEMA 4FN)
@@ -893,6 +1020,7 @@ def search_books():
         return jsonify({"error": "Error en la búsqueda de libros", "details": str(e)}), 500
 
 @app.route("/books", methods=["POST"])
+@app.route("/api/book/insert", methods=["POST"])
 def create_book():
     """
     Crear un nuevo libro junto con sus relaciones 4FN (Transacción Atómica)
@@ -1091,6 +1219,7 @@ def create_book():
         return jsonify({"error": "Error interno al crear el libro", "details": str(e)}), 500
 
 @app.route("/books/<string:isbn>", methods=["PUT"])
+@app.route("/api/book/update/<string:isbn>", methods=["PUT", "POST"])
 def update_book(isbn):
     """
     Actualizar un libro existente y sus relaciones por ISBN
@@ -1207,6 +1336,7 @@ def update_book(isbn):
         return jsonify({"error": "Error al actualizar el libro", "details": str(e)}), 500
 
 @app.route("/books/<string:isbn>", methods=["DELETE"])
+@app.route("/api/book/delete/<string:isbn>", methods=["DELETE", "POST"])
 def delete_book(isbn):
     """
     Eliminar un libro y sus referencias asociadas por ISBN
@@ -1244,6 +1374,537 @@ def delete_book(isbn):
         }), 200
     except Exception as e:
         return jsonify({"error": "Error al eliminar el libro", "details": str(e)}), 500
+
+# ==============================================================================
+# MÓDULO DE SERVICIOS SOAP & WSDL (SC3705 - SESIÓN 04)
+# Construcción manual de sobres XML con xml.etree.ElementTree (Sin Spyne ni Zeep)
+# ==============================================================================
+
+WSDL_DEFINITION = """<?xml version="1.0" encoding="UTF-8"?>
+<definitions name="LibraryCloudClassifierService"
+    targetNamespace="http://udem.edu/sc3705/soap/library"
+    xmlns="http://schemas.xmlsoap.org/wsdl/"
+    xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+    xmlns:tns="http://udem.edu/sc3705/soap/library"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+
+  <types>
+    <xsd:schema targetNamespace="http://udem.edu/sc3705/soap/library">
+      <xsd:element name="ObtenerConceptosPendientesRequest">
+        <xsd:complexType><xsd:sequence/></xsd:complexType>
+      </xsd:element>
+      <xsd:element name="ObtenerConceptosPendientesResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="total" type="xsd:int"/>
+            <xsd:element name="conceptos">
+              <xsd:complexType>
+                <xsd:sequence>
+                  <xsd:element name="concepto" maxOccurs="unbounded" minOccurs="0">
+                    <xsd:complexType>
+                      <xsd:sequence>
+                        <xsd:element name="concept_id" type="xsd:int"/>
+                        <xsd:element name="concept_name" type="xsd:string"/>
+                        <xsd:element name="book_isbn" type="xsd:string"/>
+                        <xsd:element name="book_title" type="xsd:string"/>
+                        <xsd:element name="category" type="xsd:string"/>
+                        <xsd:element name="definition" type="xsd:string"/>
+                        <xsd:element name="chapter_page" type="xsd:string" minOccurs="0"/>
+                      </xsd:sequence>
+                    </xsd:complexType>
+                  </xsd:element>
+                </xsd:sequence>
+              </xsd:complexType>
+            </xsd:element>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+      <xsd:element name="RegistrarClasificacionRequest">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="nombre" type="xsd:string"/>
+            <xsd:element name="apellidos" type="xsd:string"/>
+            <xsd:element name="correo" type="xsd:string"/>
+            <xsd:element name="isbn" type="xsd:string" minOccurs="0"/>
+            <xsd:element name="concept_id" type="xsd:int" minOccurs="0"/>
+            <xsd:element name="texto_evaluado" type="xsd:string"/>
+            <xsd:element name="modelo_cloud">
+              <xsd:simpleType>
+                <xsd:restriction base="xsd:string">
+                  <xsd:enumeration value="IaaS"/>
+                  <xsd:enumeration value="PaaS"/>
+                  <xsd:enumeration value="SaaS"/>
+                  <xsd:enumeration value="FaaS"/>
+                </xsd:restriction>
+              </xsd:simpleType>
+            </xsd:element>
+            <xsd:element name="justificacion" type="xsd:string" minOccurs="0"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="RegistrarClasificacionResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="status" type="xsd:string"/>
+            <xsd:element name="clasificacion_id" type="xsd:int"/>
+            <xsd:element name="mensaje" type="xsd:string"/>
+            <xsd:element name="timestamp" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+      <xsd:element name="ObtenerProgresoUsuarioRequest">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="correo" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="ObtenerProgresoUsuarioResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="correo" type="xsd:string"/>
+            <xsd:element name="nombre_completo" type="xsd:string"/>
+            <xsd:element name="total_clasificados" type="xsd:int"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+      <xsd:element name="ObtenerEstadisticasPorModeloRequest">
+        <xsd:complexType><xsd:sequence/></xsd:complexType>
+      </xsd:element>
+      <xsd:element name="ObtenerEstadisticasPorModeloResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="iaas_count" type="xsd:int"/>
+            <xsd:element name="paas_count" type="xsd:int"/>
+            <xsd:element name="saas_count" type="xsd:int"/>
+            <xsd:element name="faas_count" type="xsd:int"/>
+            <xsd:element name="total_count" type="xsd:int"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+      <xsd:element name="DuplicateClassificationFault">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="error_message" type="xsd:string"/>
+            <xsd:element name="correo" type="xsd:string"/>
+            <xsd:element name="concept_id" type="xsd:int"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+    </xsd:schema>
+  </types>
+
+  <message name="ObtenerConceptosPendientesInput">
+    <part name="parameters" element="tns:ObtenerConceptosPendientesRequest"/>
+  </message>
+  <message name="ObtenerConceptosPendientesOutput">
+    <part name="parameters" element="tns:ObtenerConceptosPendientesResponse"/>
+  </message>
+
+  <message name="RegistrarClasificacionInput">
+    <part name="parameters" element="tns:RegistrarClasificacionRequest"/>
+  </message>
+  <message name="RegistrarClasificacionOutput">
+    <part name="parameters" element="tns:RegistrarClasificacionResponse"/>
+  </message>
+  <message name="DuplicateFaultMessage">
+    <part name="fault" element="tns:DuplicateClassificationFault"/>
+  </message>
+
+  <message name="ObtenerProgresoUsuarioInput">
+    <part name="parameters" element="tns:ObtenerProgresoUsuarioRequest"/>
+  </message>
+  <message name="ObtenerProgresoUsuarioOutput">
+    <part name="parameters" element="tns:ObtenerProgresoUsuarioResponse"/>
+  </message>
+
+  <message name="ObtenerEstadisticasPorModeloInput">
+    <part name="parameters" element="tns:ObtenerEstadisticasPorModeloRequest"/>
+  </message>
+  <message name="ObtenerEstadisticasPorModeloOutput">
+    <part name="parameters" element="tns:ObtenerEstadisticasPorModeloResponse"/>
+  </message>
+
+  <portType name="LibraryCloudPortType">
+    <operation name="ObtenerConceptosPendientes">
+      <input message="tns:ObtenerConceptosPendientesInput"/>
+      <output message="tns:ObtenerConceptosPendientesOutput"/>
+    </operation>
+    <operation name="RegistrarClasificacion">
+      <input message="tns:RegistrarClasificacionInput"/>
+      <output message="tns:RegistrarClasificacionOutput"/>
+      <fault name="DuplicateFault" message="tns:DuplicateFaultMessage"/>
+    </operation>
+    <operation name="ObtenerProgresoUsuario">
+      <input message="tns:ObtenerProgresoUsuarioInput"/>
+      <output message="tns:ObtenerProgresoUsuarioOutput"/>
+    </operation>
+    <operation name="ObtenerEstadisticasPorModelo">
+      <input message="tns:ObtenerEstadisticasPorModeloInput"/>
+      <output message="tns:ObtenerEstadisticasPorModeloOutput"/>
+    </operation>
+  </portType>
+
+  <binding name="LibraryCloudBinding" type="tns:LibraryCloudPortType">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <operation name="ObtenerConceptosPendientes">
+      <soap:operation soapAction="http://udem.edu/sc3705/soap/library/ObtenerConceptosPendientes"/>
+      <input><soap:body use="literal"/></input>
+      <output><soap:body use="literal"/></output>
+    </operation>
+    <operation name="RegistrarClasificacion">
+      <soap:operation soapAction="http://udem.edu/sc3705/soap/library/RegistrarClasificacion"/>
+      <input><soap:body use="literal"/></input>
+      <output><soap:body use="literal"/></output>
+      <fault name="DuplicateFault"><soap:fault name="DuplicateFault" use="literal"/></fault>
+    </operation>
+    <operation name="ObtenerProgresoUsuario">
+      <soap:operation soapAction="http://udem.edu/sc3705/soap/library/ObtenerProgresoUsuario"/>
+      <input><soap:body use="literal"/></input>
+      <output><soap:body use="literal"/></output>
+    </operation>
+    <operation name="ObtenerEstadisticasPorModelo">
+      <soap:operation soapAction="http://udem.edu/sc3705/soap/library/ObtenerEstadisticasPorModelo"/>
+      <input><soap:body use="literal"/></input>
+      <output><soap:body use="literal"/></output>
+    </operation>
+  </binding>
+
+  <service name="LibraryCloudClassifierService">
+    <port name="LibraryCloudPort" binding="tns:LibraryCloudBinding">
+      <soap:address location="http://34.51.75.114:5001/soap"/>
+    </port>
+  </service>
+</definitions>
+"""
+
+def build_soap_fault(faultcode, faultstring, detail_dict=None, status_code=500):
+    """
+    Construye un sobre SOAP Fault conforme al estándar SOAP 1.1 con códigos de estado adecuados
+    """
+    envelope = ET.Element("soap:Envelope", attrib={
+        "xmlns:soap": "http://schemas.xmlsoap.org/soap/envelope/",
+        "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+        "xmlns:xsd": "http://www.w3.org/2001/XMLSchema"
+    })
+    body = ET.SubElement(envelope, "soap:Body")
+    fault = ET.SubElement(body, "soap:Fault")
+    
+    fc = ET.SubElement(fault, "faultcode")
+    fc.text = faultcode
+    
+    fs = ET.SubElement(fault, "faultstring")
+    fs.text = faultstring
+    
+    if detail_dict:
+        detail = ET.SubElement(fault, "detail")
+        for k, v in detail_dict.items():
+            elem = ET.SubElement(detail, str(k))
+            elem.text = str(v)
+            
+    ET.indent(envelope, space="  ")
+    xml_str = ET.tostring(envelope, encoding="utf-8", xml_declaration=True).decode("utf-8")
+    return Response(xml_str, status=status_code, mimetype="text/xml; charset=utf-8")
+
+def build_soap_response(body_child_elem):
+    """
+    Envuelve un elemento XML en un sobre SOAP Envelope 1.1 estándar
+    """
+    envelope = ET.Element("soap:Envelope", attrib={
+        "xmlns:soap": "http://schemas.xmlsoap.org/soap/envelope/",
+        "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+        "xmlns:xsd": "http://www.w3.org/2001/XMLSchema",
+        "xmlns:m": "http://udem.edu/sc3705/soap/library"
+    })
+    body = ET.SubElement(envelope, "soap:Body")
+    body.append(body_child_elem)
+    ET.indent(envelope, space="  ")
+    xml_str = ET.tostring(envelope, encoding="utf-8", xml_declaration=True).decode("utf-8")
+    return Response(xml_str, status=200, mimetype="text/xml; charset=utf-8")
+
+def _strip_ns(tag):
+    if "}" in tag:
+        return tag.split("}", 1)[1]
+    return tag
+
+@app.route("/soap", methods=["GET"])
+@app.route("/wsdl", methods=["GET"])
+def get_soap_wsdl():
+    """
+    Descarga del Contrato Formal WSDL 1.1 del Servicio SOAP (SC3705 - Sesión 04)
+    ---
+    tags:
+      - SOAP
+    produces:
+      - application/xml
+      - text/xml
+    responses:
+      200:
+        description: Documento de definición WSDL del servicio SOAP
+    """
+    if "wsdl" in request.args or request.path.endswith("/wsdl") or request.path == "/wsdl":
+        registrar_cliente_servido("SOAP WSDL Client", "/soap?wsdl", "WSDL-XML")
+        return Response(WSDL_DEFINITION.strip(), status=200, mimetype="text/xml; charset=utf-8")
+    
+    # Vista informativa del endpoint SOAP
+    info_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<soap_service status="ONLINE">
+  <name>Academic Library SOAP Cloud Classifier Service</name>
+  <version>1.0.0</version>
+  <institution>Universidad de Monterrey (UDEM)</institution>
+  <course>SC3705 - Integracion de Aplicaciones Computacionales</course>
+  <wsdl_url>{request.host_url}soap?wsdl</wsdl_url>
+  <operations>
+    <operation name="ObtenerConceptosPendientes">Retorna conceptos de Cloud catalogados pendientes de evaluacion.</operation>
+    <operation name="RegistrarClasificacion">Registra clasificacion (IaaS/PaaS/SaaS/FaaS) de un concepto. Retorna Fault 409 si duplicado.</operation>
+    <operation name="ObtenerProgresoUsuario">Consulta el total de conceptos clasificados por un usuario.</operation>
+    <operation name="ObtenerEstadisticasPorModelo">Conteo agregado por modelo de servicio cloud.</operation>
+  </operations>
+</soap_service>"""
+    return Response(info_xml, status=200, mimetype="application/xml; charset=utf-8")
+
+@app.route("/soap", methods=["POST"])
+def handle_soap_post():
+    """
+    Endpoint principal para procesamiento manual de mensajes SOAP 1.1 con xml.etree
+    """
+    raw_xml = request.get_data(as_text=True)
+    if not raw_xml or not raw_xml.strip():
+        return build_soap_fault("soap:Client", "Petición SOAP vacía o sin payload XML", status_code=400)
+    
+    try:
+        root = ET.fromstring(raw_xml)
+    except Exception as parse_err:
+        return build_soap_fault("soap:Client.XMLParseError", f"Error de sintaxis XML: {str(parse_err)}", status_code=400)
+
+    # Buscar el elemento Body
+    body_elem = None
+    for child in root:
+        if _strip_ns(child.tag).lower() == "body":
+            body_elem = child
+            break
+
+    if body_elem is None or len(body_elem) == 0:
+        return build_soap_fault("soap:Client", "El sobre SOAP no contiene un elemento Body válido", status_code=400)
+
+    op_elem = body_elem[0]
+    op_name = _strip_ns(op_elem.tag)
+
+    # Dispatch de operaciones:
+    if op_name in ("ObtenerConceptosPendientes", "ObtenerConceptosPendientesRequest"):
+        return _soap_obtener_conceptos_pendientes()
+    elif op_name in ("RegistrarClasificacion", "RegistrarClasificacionRequest"):
+        return _soap_registrar_clasificacion(op_elem)
+    elif op_name in ("ObtenerProgresoUsuario", "ObtenerProgresoUsuarioRequest"):
+        return _soap_obtener_progreso_usuario(op_elem)
+    elif op_name in ("ObtenerEstadisticasPorModelo", "ObtenerEstadisticasPorModeloRequest"):
+        return _soap_obtener_estadisticas_modelo()
+    else:
+        return build_soap_fault("soap:Client.InvalidOperation", f"Operación SOAP no reconocida: '{op_name}'", status_code=400)
+
+def _soap_obtener_conceptos_pendientes():
+    registrar_cliente_servido("SOAP Client", "/soap:ObtenerConceptosPendientes", "SOAP-XML")
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'book_concepts' AND column_name = 'specific_definition';
+                """)
+                has_spec = cur.fetchone() is not None
+                def_field = "COALESCE(bc.specific_definition, bc.definition, co.general_summary)" if has_spec else "COALESCE(bc.definition, co.general_summary)"
+
+                cur.execute(f"""
+                    SELECT 
+                        co.id AS concept_id,
+                        co.name AS concept_name,
+                        b.isbn AS book_isbn,
+                        b.title AS book_title,
+                        cat.name AS category,
+                        {def_field} AS definition,
+                        bc.chapter_page
+                    FROM book_concepts bc
+                    JOIN books b ON bc.book_id = b.id
+                    JOIN categories cat ON b.category_id = cat.id
+                    JOIN concepts co ON bc.concept_id = co.id
+                    ORDER BY b.id, co.id;
+                """)
+                rows = cur.fetchall()
+
+                resp_elem = ET.Element("m:ObtenerConceptosPendientesResponse")
+                ET.SubElement(resp_elem, "total").text = str(len(rows))
+                conceptos_elem = ET.SubElement(resp_elem, "conceptos")
+                for r in rows:
+                    c_elem = ET.SubElement(conceptos_elem, "concepto")
+                    ET.SubElement(c_elem, "concept_id").text = str(r["concept_id"])
+                    ET.SubElement(c_elem, "concept_name").text = str(r["concept_name"])
+                    ET.SubElement(c_elem, "book_isbn").text = str(r["book_isbn"])
+                    ET.SubElement(c_elem, "book_title").text = str(r["book_title"])
+                    ET.SubElement(c_elem, "category").text = str(r["category"])
+                    ET.SubElement(c_elem, "definition").text = str(r["definition"] or "")
+                    if r.get("chapter_page"):
+                        ET.SubElement(c_elem, "chapter_page").text = str(r["chapter_page"])
+                
+                return build_soap_response(resp_elem)
+    except Exception as e:
+        return build_soap_fault("soap:Server", f"Error interno en base de datos: {str(e)}", status_code=500)
+
+def _soap_registrar_clasificacion(op_elem):
+    registrar_cliente_servido("SOAP Client", "/soap:RegistrarClasificacion", "SOAP-XML")
+    data = {}
+    for sub in op_elem:
+        data[_strip_ns(sub.tag)] = sub.text.strip() if sub.text else ""
+
+    nombre = data.get("nombre") or "Usuario"
+    apellidos = data.get("apellidos") or "SOAP"
+    correo = data.get("correo") or ""
+    isbn = data.get("isbn") or None
+    concept_id_str = data.get("concept_id") or ""
+    texto_evaluado = data.get("texto_evaluado") or ""
+    modelo_cloud = data.get("modelo_cloud", "").strip().upper()
+    justificacion = data.get("justificacion") or "Clasificación registrada mediante sobre SOAP"
+
+    if not correo:
+        return build_soap_fault("soap:Client.ValidationError", "El campo 'correo' es obligatorio para identificar al clasificador", status_code=400)
+    if not texto_evaluado:
+        return build_soap_fault("soap:Client.ValidationError", "El campo 'texto_evaluado' no puede estar vacío", status_code=400)
+    
+    # Normalizar modelo_cloud
+    valid_models = {"IAAS": "IaaS", "PAAS": "PaaS", "SAAS": "SaaS", "FAAS": "FaaS"}
+    if modelo_cloud not in valid_models:
+        return build_soap_fault("soap:Client.ValidationError", f"Modelo de servicio '{modelo_cloud}' inválido. Debe ser IaaS, PaaS, SaaS o FaaS.", status_code=400)
+    modelo_cloud = valid_models[modelo_cloud]
+
+    concept_id = int(concept_id_str) if concept_id_str.isdigit() else None
+
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                # 1. Asegurar clasificador
+                cur.execute("""
+                    INSERT INTO clasificadores (nombre, apellidos, correo)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (correo) DO UPDATE SET 
+                        nombre = EXCLUDED.nombre, 
+                        apellidos = EXCLUDED.apellidos
+                    RETURNING id;
+                """, (nombre, apellidos, correo))
+                clasificador_id = cur.fetchone()["id"]
+
+                # 2. Intentar registrar la clasificación
+                cur.execute("""
+                    INSERT INTO clasificaciones_cloud (clasificador_id, isbn, concept_id, texto_evaluado, modelo_cloud, justificacion)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING id, fecha_clasificacion;
+                """, (clasificador_id, isbn, concept_id, texto_evaluado, modelo_cloud, justificacion))
+                new_row = cur.fetchone()
+                conn.commit()
+
+                resp_elem = ET.Element("m:RegistrarClasificacionResponse")
+                ET.SubElement(resp_elem, "status").text = "SUCCESS"
+                ET.SubElement(resp_elem, "clasificacion_id").text = str(new_row["id"])
+                ET.SubElement(resp_elem, "clasificador_id").text = str(clasificador_id)
+                ET.SubElement(resp_elem, "modelo_cloud").text = modelo_cloud
+                ET.SubElement(resp_elem, "mensaje").text = f"Concepto clasificado exitosamente como {modelo_cloud}"
+                ET.SubElement(resp_elem, "timestamp").text = str(new_row["fecha_clasificacion"])
+                return build_soap_response(resp_elem)
+
+    except UniqueViolation:
+        # SOAP Fault 409 cuando ya fue clasificado por este clasificador (Sesión 04 Requisito)
+        return build_soap_fault(
+            faultcode="soap:Client.DuplicateClassification",
+            faultstring=f"El concepto con ID {concept_id} ya fue clasificado previamente por el usuario {correo}",
+            detail_dict={
+                "error_code": "409_DUPLICATE_CLASSIFICATION",
+                "correo": correo,
+                "concept_id": str(concept_id),
+                "message": "Violación de unicidad en clasificaciones_cloud: un clasificador no puede evaluar dos veces el mismo concepto."
+            },
+            status_code=409
+        )
+    except Exception as ex:
+        return build_soap_fault("soap:Server", f"Error al procesar la clasificación: {str(ex)}", status_code=500)
+
+def _soap_obtener_progreso_usuario(op_elem):
+    registrar_cliente_servido("SOAP Client", "/soap:ObtenerProgresoUsuario", "SOAP-XML")
+    data = {}
+    for sub in op_elem:
+        data[_strip_ns(sub.tag)] = sub.text.strip() if sub.text else ""
+    correo = data.get("correo", "")
+    if not correo:
+        return build_soap_fault("soap:Client.ValidationError", "El campo 'correo' es obligatorio", status_code=400)
+
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT c.id, c.nombre, c.apellidos, c.correo,
+                           COUNT(cc.id) AS total_clasificados
+                    FROM clasificadores c
+                    LEFT JOIN clasificaciones_cloud cc ON c.id = cc.clasificador_id
+                    WHERE c.correo = %s
+                    GROUP BY c.id;
+                """, (correo,))
+                row = cur.fetchone()
+                if not row:
+                    return build_soap_fault("soap:Client.UserNotFound", f"No se encontró registro para el correo '{correo}'", status_code=404)
+
+                cur.execute("""
+                    SELECT id, isbn, concept_id, modelo_cloud, fecha_clasificacion
+                    FROM clasificaciones_cloud
+                    WHERE clasificador_id = %s
+                    ORDER BY fecha_clasificacion DESC;
+                """, (row["id"],))
+                clasif_rows = cur.fetchall()
+
+                resp_elem = ET.Element("m:ObtenerProgresoUsuarioResponse")
+                ET.SubElement(resp_elem, "correo").text = row["correo"]
+                ET.SubElement(resp_elem, "nombre_completo").text = f"{row['nombre']} {row['apellidos']}"
+                ET.SubElement(resp_elem, "total_clasificados").text = str(row["total_clasificados"])
+                items_elem = ET.SubElement(resp_elem, "clasificaciones")
+                for cr in clasif_rows:
+                    it = ET.SubElement(items_elem, "item")
+                    ET.SubElement(it, "id").text = str(cr["id"])
+                    ET.SubElement(it, "isbn").text = str(cr["isbn"] or "N/A")
+                    ET.SubElement(it, "concept_id").text = str(cr["concept_id"] or "N/A")
+                    ET.SubElement(it, "modelo_cloud").text = str(cr["modelo_cloud"])
+                    ET.SubElement(it, "fecha").text = str(cr["fecha_clasificacion"])
+
+                return build_soap_response(resp_elem)
+    except Exception as e:
+        return build_soap_fault("soap:Server", str(e), status_code=500)
+
+def _soap_obtener_estadisticas_modelo():
+    registrar_cliente_servido("SOAP Client", "/soap:ObtenerEstadisticasPorModelo", "SOAP-XML")
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT modelo_cloud, COUNT(*) AS count
+                    FROM clasificaciones_cloud
+                    GROUP BY modelo_cloud;
+                """)
+                counts = {r["modelo_cloud"]: r["count"] for r in cur.fetchall()}
+                iaas_c = counts.get("IaaS", 0)
+                paas_c = counts.get("PaaS", 0)
+                saas_c = counts.get("SaaS", 0)
+                faas_c = counts.get("FaaS", 0)
+                total_c = iaas_c + paas_c + saas_c + faas_c
+
+                resp_elem = ET.Element("m:ObtenerEstadisticasPorModeloResponse")
+                ET.SubElement(resp_elem, "iaas_count").text = str(iaas_c)
+                ET.SubElement(resp_elem, "paas_count").text = str(paas_c)
+                ET.SubElement(resp_elem, "saas_count").text = str(saas_c)
+                ET.SubElement(resp_elem, "faas_count").text = str(faas_c)
+                ET.SubElement(resp_elem, "total_count").text = str(total_c)
+                return build_soap_response(resp_elem)
+    except Exception as e:
+        return build_soap_fault("soap:Server", str(e), status_code=500)
 
 # ==============================================================================
 # MANEJO CONTROLADO DE ERRORES GLOBALES

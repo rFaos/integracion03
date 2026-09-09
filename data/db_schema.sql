@@ -5,6 +5,9 @@
 -- ==============================================================================
 
 -- 1. Limpieza de tablas previas (en orden inverso de dependencias)
+DROP TABLE IF EXISTS clasificaciones_cloud CASCADE;
+DROP TABLE IF EXISTS clasificadores CASCADE;
+DROP TABLE IF EXISTS clientes_servidos CASCADE;
 DROP TABLE IF EXISTS book_concepts CASCADE;
 DROP TABLE IF EXISTS book_images CASCADE;
 DROP TABLE IF EXISTS book_genres CASCADE;
@@ -116,3 +119,47 @@ CREATE INDEX idx_books_format_id ON books(format_id);
 CREATE INDEX idx_books_category_id ON books(category_id);
 CREATE INDEX idx_book_images_book_id ON book_images(book_id);
 CREATE INDEX idx_book_concepts_concept_id ON book_concepts(concept_id);
+
+-- ==============================================================================
+-- 7. Tablas de Integración SOAP & Microservicios Cloud (SC3705 - Sesión 04)
+-- ==============================================================================
+
+-- Registro de usuarios evaluadores/clasificadores que interactúan vía SOAP o Electron
+CREATE TABLE IF NOT EXISTS clasificadores (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    apellidos VARCHAR(100) NOT NULL,
+    correo VARCHAR(150) UNIQUE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Almacena las clasificaciones automáticas o manuales a modelos Cloud (IaaS, PaaS, SaaS, FaaS)
+-- Vinculadas a los libros (books.isbn) y a los conceptos técnicos (concepts.id)
+CREATE TABLE IF NOT EXISTS clasificaciones_cloud (
+    id SERIAL PRIMARY KEY,
+    clasificador_id INT NOT NULL REFERENCES clasificadores(id) ON UPDATE CASCADE ON DELETE CASCADE,
+    isbn VARCHAR(20) REFERENCES books(isbn) ON UPDATE CASCADE ON DELETE SET NULL,
+    concept_id INT REFERENCES concepts(id) ON UPDATE CASCADE ON DELETE SET NULL,
+    texto_evaluado TEXT NOT NULL,
+    modelo_cloud VARCHAR(10) NOT NULL CHECK (modelo_cloud IN ('IaaS', 'PaaS', 'SaaS', 'FaaS')),
+    justificacion TEXT,
+    fecha_clasificacion TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    -- Restricción para detonar SOAP Fault (409 Conflict) si el mismo clasificador evalúa el mismo concepto dos veces:
+    CONSTRAINT uq_usuario_concepto UNIQUE (clasificador_id, concept_id)
+);
+
+-- Métricas de auditoría: tipos de clientes servidos y número de peticiones procesadas
+CREATE TABLE IF NOT EXISTS clientes_servidos (
+    id SERIAL PRIMARY KEY,
+    tipo_cliente VARCHAR(60) NOT NULL, -- 'Electron Desktop XML', 'SOAP Client', 'REST Web Browser', etc.
+    endpoint_consultado VARCHAR(255) NOT NULL,
+    formato_solicitado VARCHAR(20) NOT NULL, -- 'XML', 'JSON', 'SOAP-XML'
+    peticiones_servidas INT NOT NULL DEFAULT 1,
+    ip_origen VARCHAR(45) DEFAULT '127.0.0.1',
+    ultima_peticion TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_clasificaciones_isbn ON clasificaciones_cloud(isbn);
+CREATE INDEX idx_clasificaciones_modelo ON clasificaciones_cloud(modelo_cloud);
+CREATE INDEX idx_clientes_tipo ON clientes_servidos(tipo_cliente);
+
