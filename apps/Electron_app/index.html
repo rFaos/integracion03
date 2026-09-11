@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clasificador Cloud Computing | Cliente Electron XML (SC3705)</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Toast Notification -->
+  <div id="toastNotification" class="toast-box"></div>
+
+  <!-- Header Institucional -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="logo-badge">☁️</div>
+      <div>
+        <h1 class="app-title">Cloud Classifier Desktop</h1>
+        <p class="app-subtitle">Cliente Electron XML • Consumo de Microservicio Cloud (UDEM SC-2236)</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="user-badge">
+        <span class="badge-role">Estudiante</span>
+        <span class="badge-name">Fabián Azaed Orta (613504)</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="app-main">
+
+    <!-- Configuración del Microservicio -->
+    <section class="card config-card">
+      <div class="card-header">
+        <span class="card-tag">1. Configuración de Conectividad</span>
+        <h2>Instancia en la Nube &amp; Protocolo</h2>
+      </div>
+      <div class="config-grid">
+        <div class="form-group">
+          <label for="inputServerUrl">URL del Microservicio Cloud:</label>
+          <div class="url-input-wrapper">
+            <input type="text" id="inputServerUrl" value="http://34.51.23.80:5001" placeholder="http://34.51.23.80:5001">
+            <button id="btnTestHealth" class="btn btn-secondary" title="Probar conexión /health">Probar Health</button>
+          </div>
+          <small class="field-help">Por defecto conecta a la VM Google Cloud (<code>34.51.23.80:5001</code>). Para pruebas locales use <code>http://127.0.0.1:5000</code>.</small>
+        </div>
+
+        <div class="form-group">
+          <label for="selectProtocol">Modo de Petición:</label>
+          <select id="selectProtocol" class="select-control">
+            <option value="REST_XML" selected>RESTful XML (/books/temas?format=XML)</option>
+            <option value="SOAP">SOAP 1.1 Envelope (/soap + RegistrarClasificacion)</option>
+          </select>
+          <small class="field-help">Ambos modos procesan exclusivamente XML parseado con DOMParser.</small>
+        </div>
+      </div>
+    </section>
+
+    <!-- Datos del Evaluador y Texto Cloud -->
+    <section class="card form-card">
+      <div class="card-header">
+        <span class="card-tag">2. Datos del Evaluador &amp; Descripción</span>
+        <h2>Ingreso de Texto para Clasificación Cloud</h2>
+      </div>
+
+      <div class="evaluator-grid">
+        <div class="form-group">
+          <label for="inputNombre">Nombre(s): *</label>
+          <input type="text" id="inputNombre" placeholder="Fabián Azaed" value="Fabián Azaed">
+        </div>
+
+        <div class="form-group">
+          <label for="inputApellidos">Apellido(s): *</label>
+          <input type="text" id="inputApellidos" placeholder="Orta Singlaterry" value="Orta Singlaterry">
+        </div>
+
+        <div class="form-group">
+          <label for="inputCorreo">Correo Institucional: (Para SOAP)</label>
+          <input type="email" id="inputCorreo" placeholder="azaedorta@hotmail.com" value="azaedorta@hotmail.com">
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+          <label for="inputText">Palabras, frases o descripción técnica de Cloud Computing: *</label>
+          <div class="sample-chips">
+            <span class="chip-label">Cargar ejemplo:</span>
+            <button type="button" class="chip-btn chip-iaas" onclick="insertSample('iaas')">IaaS</button>
+            <button type="button" class="chip-btn chip-paas" onclick="insertSample('paas')">PaaS</button>
+            <button type="button" class="chip-btn chip-saas" onclick="insertSample('saas')">SaaS</button>
+            <button type="button" class="chip-btn chip-faas" onclick="insertSample('faas')">FaaS</button>
+          </div>
+        </div>
+        <textarea id="inputText" rows="4" placeholder="Escriba aquí la descripción o palabras relacionadas con servicios en la nube (ej. máquinas virtuales, contenedores en Kubernetes, funciones efímeras sin servidor, Google Workspace)..."></textarea>
+      </div>
+
+      <div class="action-bar">
+        <button id="btnAnalyze" class="btn btn-primary">
+          <span class="btn-icon">⚡</span> Analizar y Clasificar (XML)
+        </button>
+        <button id="btnLoadXml" class="btn btn-outline">
+          <span class="btn-icon">📥</span> Cargar Temas Catálogo XML
+        </button>
+      </div>
+    </section>
+
+    <!-- Tarjeta de Resultados -->
+    <section id="resultCard" class="card result-card" style="display: none;">
+      <div class="card-header">
+        <span class="card-tag">3. Veredicto del Modelo</span>
+        <h2>Diagnóstico de Clasificación Cloud</h2>
+      </div>
+
+      <div class="winner-box">
+        <div class="winner-left">
+          <span id="winnerBadge" class="model-pill pill-iaas">IaaS</span>
+          <h3 id="winnerTitle" class="winner-title">Infrastructure as a Service</h3>
+          <p id="winnerDesc" class="winner-desc">Justificación técnica de la asignación.</p>
+        </div>
+        <div class="winner-right">
+          <span class="confidence-label">Nivel de Confianza:</span>
+          <div class="confidence-meter">
+            <div id="confidenceBar" class="confidence-fill" style="width: 75%;"></div>
+          </div>
+          <span id="confidenceText" class="confidence-text">75% de afinidad identificada</span>
+        </div>
+      </div>
+
+      <!-- Desglose por Modelo -->
+      <div class="breakdown-container">
+        <h4 class="breakdown-title">Distribución Ponderada por Modelo:</h4>
+        <div id="breakdownList" class="breakdown-grid"></div>
+      </div>
+
+      <!-- Referencias Bibliográficas del XML -->
+      <div id="bookReferences" class="book-references"></div>
+    </section>
+
+    <!-- Consola de Peticiones y Respuestas XML -->
+    <section class="card console-card">
+      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <span class="card-tag">4. Auditoría de Protocolo</span>
+          <h2>Consola en Vivo de Tráfico XML &amp; Logs</h2>
+        </div>
+        <button id="btnClearConsole" class="btn btn-small">Limpiar</button>
+      </div>
+
+      <div class="console-grid">
+        <div>
+          <span class="console-label">Registro de Eventos y Peticiones:</span>
+          <pre id="xmlConsole" class="terminal-box"></pre>
+        </div>
+        <div>
+          <span class="console-label">Último Payload XML Crudo (Microservicio Cloud):</span>
+          <pre id="rawXmlPayload" class="terminal-box xml-payload">&lt;!-- Aquí se renderizará el XML en crudo recibido del servidor --&gt;</pre>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="app-footer">
+    <p>&copy; 2026 Fabián Azaed Orta Singlaterry • Matrícula: 613504 • SC3705 UDEM</p>
+  </footer>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
