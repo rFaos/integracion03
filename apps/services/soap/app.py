@@ -1576,7 +1576,7 @@ WSDL_DEFINITION = """<?xml version="1.0" encoding="UTF-8"?>
 
   <service name="LibraryCloudClassifierService">
     <port name="LibraryCloudPort" binding="tns:LibraryCloudBinding">
-      <soap:address location="http://34.51.23.80:5001/soap"/>
+      <soap:address location="http://34.51.8.146:5001/soap"/>
     </port>
   </service>
 </definitions>

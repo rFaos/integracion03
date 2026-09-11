@@ -1,4 +1,4 @@
-# Requerimientos de la Aplicación de Escritorio Electron (04_Electron_app)
+# Requerimientos: Catálogo de Libros en Electron para Windows 11 (04_Electron_app.md)
 
 **Materia:** Integración de Aplicaciones Computacionales (SC-2236)  
 **Estudiante:** Fabián Azaed Orta Singlaterry (Matrícula: 613504)  
@@ -7,47 +7,30 @@
 
 ---
 
-## 1. Objetivo General
-Diseñar y construir una aplicación de escritorio multiplataforma basada en **Electron** que se integre con el microservicio en la nube (`/apps/services/soap/app.py` desplegado en Google Cloud Compute Engine, IP `34.51.23.80:5001`), consumiendo **exclusivamente datos estructurados en formato XML**.
+## 📋 Requerimientos del Proyecto
+
+### 1. Interfaz Gráfica Profesional con Cards y Paginación
+* Escribe una app de escritorio para **Windows 11** con **Electron** y una **GUI profesional** que muestre el catálogo de libros con sus imágenes usando **Cards**.
+* Cada **Card** debe mostrar:
+  1. **Imagen del libro** (con fallback elegante ante fallas de carga).
+  2. **Autor(es)**.
+  3. **ISBN**.
+  4. **Stock** (con semáforo condicional: Verde en stock, Amarillo bajo stock, Rojo agotado).
+  5. **Año de publicación**.
+  6. **Género** / Categoría.
+  7. **Precio** con su divisa (`USD`).
+* **Implementa paginación y carga por petición** (paginación en demanda, selector de libros por página y buscador en tiempo real).
+* **Deposítala en:** `/apps/ElectronApp` (y réplica en `/Electron_app`).
 
 ---
 
-## 2. Requerimientos Funcionales Específicos
-
-### R1. Consumo Exclusivo de Datos en XML
-* La aplicación de escritorio debe realizar solicitudes HTTP solicitando y procesando **únicamente XML** (vía `/books/temas?format=XML` o mediante sobres SOAP 1.1 en `/soap`).
-* Está **estrictamente prohibido el consumo o parseo de JSON** en la lógica de negocio del clasificador.
-* El procesamiento del árbol XML se realiza en el cliente mediante la API nativa `DOMParser` de JavaScript.
-* Debe contemplar las directivas de seguridad **CORS** y configurar `webSecurity: false` en `webPreferences` de Electron para permitir peticiones cross-origin a la instancia remota de Google Cloud sin bloqueos de navegador.
-
-### R2. Captura de Datos del Evaluador y Descripción Técnica
-* La interfaz gráfica de usuario (GUI) debe proporcionar campos para capturar:
-  1. **Nombre(s)** del usuario evaluador.
-  2. **Apellido(s)** del usuario evaluador.
-  3. **Correo institucional** (para trazabilidad en auditoría y operaciones SOAP).
-  4. Un **área de texto (`<textarea>`)** amplia donde el usuario pueda ingresar palabras clave, frases o descripciones técnicas relacionadas con libros y temas de Cloud Computing.
-
-### R3. Motor de Clasificación Modular por Categoría de Servicio Cloud
-* La aplicación analiza el texto ingresado por el usuario, cruza los conceptos contra el catálogo temático XML obtenido del microservicio remoto y determina a qué modelo de servicio Cloud corresponde principalmente:
-  1. **IaaS (Infrastructure as a Service):** Servidores virtuales, cómputo dedicado, discos en bloque, VPC, subredes, firewalls, particionamiento de hardware.
-  2. **PaaS (Platform as a Service):** Runtimes de ejecución, contenedores, orquestadores (Kubernetes, Pods), middleware, bases de datos gestionadas, CI/CD.
-  3. **SaaS (Software as a Service):** Software final empaquetado, correo, CRM, ERP, ofimática en la nube, consumo por navegador sin gestión de infraestructura.
-  4. **FaaS (Function as a Service / Serverless):** Funciones efímeras disparadas por eventos (triggers, HTTP), microfacturación por milisegundo, escalado automático a cero.
-* **Modularidad obligatoria:** El código debe estructurarse mediante **funciones o métodos independientes** y autónomos para cada categoría:
-  * `classifyIaaS(text, xmlTopics)`
-  * `classifyPaaS(text, xmlTopics)`
-  * `classifySaaS(text, xmlTopics)`
-  * `classifyFaaS(text, xmlTopics)`
-* Cada función debe contener comentarios técnicos exhaustivos explicando la heurística y la lógica de ponderación léxica.
-
-### R4. Retroalimentación Visual y Auditoría en Tiempo Real
-* Indicador de estado del servidor en la nube (`Servidor ONLINE / Conectado`, `Error de Conexión`).
-* Resultados gráficos con barras de porcentaje de afinidad para las 4 categorías (IaaS, PaaS, SaaS, FaaS).
-* Justificación técnica explicativa del resultado ganador.
-* Consola interactiva de auditoría en vivo mostrando el **payload XML crudo** recibido del servidor y los eventos del protocolo.
+### 2. Consumo Exclusivo de XML y Persistencia en LocalStorage
+* La app de escritorio para Windows 11 con Electron debe de consumir **EXCLUSIVAMENTE XML** provisto por el microservicio disponible en `http://34.51.8.146:5001/books` (o `http://34.51.75.114:5001/books`), solicitando `?format=XML` y parseándolo estrictamente con `DOMParser`.
+* La **URL Base** y el **EndPoint** deben de ser configurables en la app.
+* Esta configuración **debe de persistir mediante el uso de `LocalStorage`** para que se mantenga guardada al reiniciar la aplicación.
 
 ---
 
-## 3. Directorio de Entrega
-* **Ruta Solicitada:** `C:\VSCODEOMG\IntegracionWeb\MonolitoCosa\integracion03\Electron_app\` (y réplica en `apps/Electron_app`).
-* **Lanzador para Windows:** Incluir archivo `start.bat` para ejecución en 1 solo clic.
+### 3. Documentación y Ejecución
+* Incluye los pasos para ejecutar la app en Windows 11 mediante la creación de un archivo llamado **`README.md`**.
+* Incluye el archivo **`start.bat`** para ejecución directa de 1 clic en Windows 11 sin bloqueos de PowerShell.

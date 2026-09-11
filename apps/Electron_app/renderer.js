@@ -1,24 +1,15 @@
 /**
  * ==============================================================================
- * PROYECTO: INTEGRACION03 - PROMPT 04 (CLIENTE DE ESCRITORIO ELECTRON)
+ * PROYECTO: INTEGRACION03 - CLASIFICADOR DE LIBROS CLOUD (ELECTRON_APP)
  * ARCHIVO: renderer.js - Lógica del Cliente y Motor de Clasificación XML
  * AUTOR: Fabián Azaed Orta Singlaterry (Matrícula: 613504)
  * MATERIA: Integración de Aplicaciones Computacionales (SC-2236)
  * PROFESOR: Dr. Raúl Morales Salcedo
  * UNIVERSIDAD DE MONTERREY (UDEM) - PRIMAVERA 2026
  * ==============================================================================
- * 
- * DESCRIPCIÓN TÉCNICA:
- * Este archivo implementa la capa de presentación y análisis semántico del cliente
- * de escritorio Electron. Cumple estrictamente con las directrices del Prompt 04:
- * 1. Consume EXCLUSIVAMENTE datos en formato XML del microservicio en la nube (GCP).
- * 2. Captura Nombre y Apellido del usuario evaluador.
- * 3. Analiza descripciones técnicas mediante métodos independientes para cada
- *    categoría de servicio en la nube (IaaS, PaaS, SaaS, FaaS).
- * 4. Maneja CORS y ofrece compatibilidad con sobres SOAP (Sesión 04).
  */
 
-const DEFAULT_CLOUD_URL = "http://34.51.23.80:5001";
+const DEFAULT_CLOUD_URL = "http://34.51.8.146:5001";
 const LOCALHOST_URL = "http://127.0.0.1:5000";
 
 const CLOUD_LEXICON = {
@@ -51,6 +42,7 @@ const CLOUD_LEXICON = {
 };
 
 let cachedTopicsFromXml = [];
+let cachedBooksFromXml = [];
 
 /**
  * Evalúa afinidad con Infraestructura como Servicio (IaaS)
@@ -88,7 +80,7 @@ function classifyIaaS(text, xmlTopics) {
     score: score,
     keywords: [...new Set(matchedKeywords)],
     bookMatches: matchedBookConcepts,
-    justificacion: "El texto se enfoca en recursos fundamentales de computación, redes (VPC), almacenamiento en bloque, particionamiento de bajo nivel o virtualización de hardware."
+    justificacion: "El libro o texto se enfoca en recursos fundamentales de computación física/virtual, redes (VPC), almacenamiento en bloques persistentes, particionamiento de bajo nivel o virtualización de hardware."
   };
 }
 
@@ -112,8 +104,9 @@ function classifyPaaS(text, xmlTopics) {
     for (const item of xmlTopics) {
       const topicName = (item.tema || "").toLowerCase();
       const topicDesc = (item.descripcion || "").toLowerCase();
-      if (topicName.includes("contenedor") || topicName.includes("kubernetes") || topicName.includes("microservice") ||
-          topicDesc.includes("plataforma") || topicDesc.includes("aislamiento") || topicDesc.includes("orquestador")) {
+      if (topicName.includes("plataforma") || topicName.includes("kubernetes") || topicName.includes("contenedor") ||
+          topicDesc.includes("runtime") || topicDesc.includes("despliegue") || topicDesc.includes("microservices") ||
+          topicDesc.includes("api gateway") || topicDesc.includes("middleware")) {
         if (normalizedText.includes(topicName) || normalizedText.split(/\s+/).some(w => w.length > 4 && topicDesc.includes(w))) {
           score += 20;
           matchedBookConcepts.push({ libro: item.libro, tema: item.tema, isbn: item.isbn });
@@ -128,7 +121,7 @@ function classifyPaaS(text, xmlTopics) {
     score: score,
     keywords: [...new Set(matchedKeywords)],
     bookMatches: matchedBookConcepts,
-    justificacion: "El texto hace referencia a runtimes de ejecución administrados, contenedores, orquestación de servicios o entornos de desarrollo donde el proveedor gestiona el SO subyacente."
+    justificacion: "El libro o texto hace referencia a runtimes de ejecución administrados, contenedores, Kubernetes, orquestación de servicios, microservicios o entornos de despliegue donde el proveedor gestiona el SO subyacente."
   };
 }
 
@@ -168,7 +161,7 @@ function classifySaaS(text, xmlTopics) {
     score: score,
     keywords: [...new Set(matchedKeywords)],
     bookMatches: matchedBookConcepts,
-    justificacion: "El texto describe aplicaciones listas para su consumo final directo vía navegador, sin gestión técnica de infraestructura ni desarrollo de software por parte del cliente."
+    justificacion: "El libro o texto describe aplicaciones completas y listas para su consumo directo por el usuario final vía web/navegador, sin gestión técnica de infraestructura ni mantenimiento de código por parte del cliente."
   };
 }
 
@@ -208,16 +201,16 @@ function classifyFaaS(text, xmlTopics) {
     score: score,
     keywords: [...new Set(matchedKeywords)],
     bookMatches: matchedBookConcepts,
-    justificacion: "El texto enfatiza ejecución de código efímero y stateless disparado por eventos (HTTP/PubSub) con facturación por tiempo de cómputo y escalado automático a cero."
+    justificacion: "El libro o texto enfatiza arquitecturas Serverless y ejecución de código efímero y stateless disparado por eventos (HTTP/triggers) con facturación por tiempo de cómputo y autoescalado a cero."
   };
 }
 
 /**
- * Consulta el endpoint XML en la nube y lo procesa con DOMParser
+ * Consulta el endpoint XML en la nube y extrae libros y temas con DOMParser
  */
 async function fetchCatalogTopicsFromXml(baseUrl) {
   const endpointUrl = `${baseUrl.replace(/\/+$/, '')}/books/temas?format=XML`;
-  logToConsole(`[HTTP GET] Solicitando catalogo en formato XML puro a: ${endpointUrl}`);
+  logToConsole(`[HTTP GET] Solicitando catalogo en XML a: ${endpointUrl}`);
 
   const response = await fetch(endpointUrl, {
     method: "GET",
@@ -227,50 +220,108 @@ async function fetchCatalogTopicsFromXml(baseUrl) {
   });
 
   if (!response.ok) {
-    throw new Error(`Fallo HTTP al consultar microservicio: ${response.status} ${response.statusText}`);
+    throw new Error(`Fallo HTTP: ${response.status} ${response.statusText}`);
   }
 
   const rawXmlText = await response.text();
-  logToConsole(`[XML RECIBIDO] Tamaño del payload XML: ${rawXmlText.length} bytes`);
+  logToConsole(`[XML RECIBIDO] ${rawXmlText.length} bytes recibidos.`);
 
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(rawXmlText, "application/xml");
 
   const parserError = xmlDoc.querySelector("parsererror");
   if (parserError) {
-    throw new Error(`Error en el formato del XML recibido: ${parserError.textContent}`);
+    throw new Error(`Error en formato XML: ${parserError.textContent}`);
   }
 
   const extractedTopics = [];
+  const extractedBooks = [];
   const libroNodes = xmlDoc.querySelectorAll("libro");
 
   libroNodes.forEach(libroNode => {
     const isbn = libroNode.getAttribute("isbn") || "Sin ISBN";
-    const nombreLibro = libroNode.querySelector("nombre_libro") ? libroNode.querySelector("nombre_libro").textContent : "Libro desconocido";
+    const nombreLibroNode = libroNode.querySelector("nombre_libro");
+    const nombreLibro = nombreLibroNode ? nombreLibroNode.textContent.trim() : "Libro desconocido";
     
+    const bookTopics = [];
     const temaNodes = libroNode.querySelectorAll("temas > tema");
     temaNodes.forEach(temaNode => {
-      const nombreTema = temaNode.querySelector("nombre") ? temaNode.querySelector("nombre").textContent : "";
-      const descTema = temaNode.querySelector("descripcion") ? temaNode.querySelector("descripcion").textContent : "";
-      const refTema = temaNode.querySelector("referencia") ? temaNode.querySelector("referencia").textContent : "";
+      const nombreTema = temaNode.querySelector("nombre") ? temaNode.querySelector("nombre").textContent.trim() : "";
+      const descTema = temaNode.querySelector("descripcion") ? temaNode.querySelector("descripcion").textContent.trim() : "";
+      const refTema = temaNode.querySelector("referencia") ? temaNode.querySelector("referencia").textContent.trim() : "";
 
-      extractedTopics.push({
+      const topicObj = {
         isbn: isbn,
         libro: nombreLibro,
         tema: nombreTema,
         descripcion: descTema,
         referencia: refTema
-      });
+      };
+
+      bookTopics.push(topicObj);
+      extractedTopics.push(topicObj);
+    });
+
+    extractedBooks.push({
+      isbn: isbn,
+      titulo: nombreLibro,
+      temas: bookTopics
     });
   });
 
-  logToConsole(`[XML PARSED] Éxito: Se extrajeron ${extractedTopics.length} conceptos de ${libroNodes.length} libros en catálogo.`);
+  logToConsole(`[XML PARSED] Éxito: Se extrajeron ${extractedTopics.length} conceptos de ${extractedBooks.length} libros en catálogo.`);
   cachedTopicsFromXml = extractedTopics;
+  cachedBooksFromXml = extractedBooks;
+
+  populateBookSelector(extractedBooks);
 
   return {
     rawXml: rawXmlText,
     topics: extractedTopics,
-    totalBooks: libroNodes.length
+    books: extractedBooks,
+    totalBooks: extractedBooks.length
+  };
+}
+
+function populateBookSelector(books) {
+  const select = document.getElementById("selectBook");
+  if (!select) return;
+
+  select.innerHTML = '<option value="">-- Selecciona un libro del catálogo XML para clasificar --</option>';
+  books.forEach(b => {
+    const opt = document.createElement("option");
+    opt.value = b.isbn;
+    opt.textContent = `${b.titulo} (${b.isbn}) - [${b.temas.length} temas]`;
+    select.appendChild(opt);
+  });
+
+  select.onchange = function() {
+    const selectedIsbn = select.value;
+    if (!selectedIsbn) {
+      document.getElementById("selectedBookInfo").style.display = "none";
+      return;
+    }
+
+    const book = cachedBooksFromXml.find(b => b.isbn === selectedIsbn);
+    if (!book) return;
+
+    document.getElementById("selectedBookInfo").style.display = "block";
+    document.getElementById("lblIsbn").textContent = book.isbn;
+    document.getElementById("lblTopicCount").textContent = `${book.temas.length} concepto(s)`;
+
+    // Auto-fill textarea with book details and technical descriptions
+    let autoText = `Libro: ${book.titulo}\nISBN: ${book.isbn}\n`;
+    if (book.temas.length > 0) {
+      autoText += "Temas Técnicos de Cloud:\n";
+      book.temas.forEach(t => {
+        autoText += `• ${t.tema}: ${t.descripcion} (${t.referencia})\n`;
+      });
+    } else {
+      autoText += "Temas: Arquitectura limpia, desarrollo de software modular, desacoplamiento de capas y buenas prácticas.";
+    }
+
+    document.getElementById("inputText").value = autoText;
+    logToConsole(`[LIBRO SELECCIONADO] ${book.titulo} (ISBN: ${book.isbn}). Información cargada al formulario.`);
   };
 }
 
@@ -283,7 +334,7 @@ async function sendSoapRegistration(baseUrl, payload) {
       <m:nombre>${escapeXml(payload.nombre)}</m:nombre>
       <m:apellidos>${escapeXml(payload.apellidos)}</m:apellidos>
       <m:correo>${escapeXml(payload.correo)}</m:correo>
-      <m:isbn>${escapeXml(payload.isbn || '978-1492056010')}</m:isbn>
+      <m:isbn>${escapeXml(payload.isbn || '978-1491973042')}</m:isbn>
       <m:concept_id>${payload.concept_id || 1}</m:concept_id>
       <m:texto_evaluado>${escapeXml(payload.texto)}</m:texto_evaluado>
       <m:modelo_cloud>${payload.modelo}</m:modelo_cloud>
@@ -331,6 +382,7 @@ async function handleAnalyzeClick() {
   const textoInput = document.getElementById("inputText").value.trim();
   const serverUrl = document.getElementById("inputServerUrl").value.trim() || DEFAULT_CLOUD_URL;
   const protocolMode = document.getElementById("selectProtocol").value;
+  const selectedIsbn = document.getElementById("selectBook").value;
 
   if (!nombreInput || !apellidosInput) {
     alert("Por favor ingrese el Nombre y Apellido del evaluador.");
@@ -338,15 +390,15 @@ async function handleAnalyzeClick() {
     return;
   }
   if (!textoInput) {
-    alert("Por favor ingrese palabras, frases o una descripción relacionada con Cloud Computing.");
+    alert("Por favor seleccione un libro o ingrese palabras/descripción técnica para clasificar.");
     document.getElementById("inputText").focus();
     return;
   }
 
   setLoadingState(true);
-  logToConsole(`\n--- NUEVO ANÁLISIS SOLICITADO ---`);
-  logToConsole(`Evaluador: ${nombreInput} ${apellidosInput} (${correoInput || 'Sin correo'})`);
-  logToConsole(`Texto de entrada: "${textoInput}"`);
+  logToConsole(`\n--- CLASIFICANDO LIBRO (XML) ---`);
+  logToConsole(`Evaluador: ${nombreInput} ${apellidosInput} (${correoInput || 'Sin correo'})` );
+  logToConsole(`Texto de entrada: "${textoInput.substring(0, 100)}..."`);
 
   try {
     if (cachedTopicsFromXml.length === 0) {
@@ -366,33 +418,37 @@ async function handleAnalyzeClick() {
     const totalScore = allResults.reduce((acc, curr) => acc + curr.score, 0);
     const confidence = totalScore > 0 ? Math.round((winner.score / totalScore) * 100) : 50;
 
-    logToConsole(`[DIAGNÓSTICO FINAL] Modelo Ganador: ${winner.modelo} (Score: ${winner.score}, Confianza: ${confidence}%)`);
+    logToConsole(`[DIAGNÓSTICO] Libro Clasificado como: ${winner.modelo} (Confianza: ${confidence}%)`);
+
+    const selectedBook = cachedBooksFromXml.find(b => b.isbn === selectedIsbn);
 
     renderResults(winner, allResults, totalScore, confidence, {
       nombre: nombreInput,
       apellidos: apellidosInput,
       correo: correoInput,
-      texto: textoInput
+      texto: textoInput,
+      libro: selectedBook
     });
 
     if (protocolMode === "SOAP" && correoInput) {
-      logToConsole(`[MODO SOAP] Despachando sobre SOAP para registrar la clasificación en PostgreSQL...`);
+      logToConsole(`[MODO SOAP] Despachando sobre SOAP para registrar clasificación en PostgreSQL...`);
       const soapRes = await sendSoapRegistration(serverUrl, {
         nombre: nombreInput,
         apellidos: apellidosInput,
         correo: correoInput,
+        isbn: selectedIsbn || '978-1491973042',
         texto: textoInput,
         modelo: winner.modelo,
         justificacion: winner.justificacion,
-        concept_id: winner.bookMatches.length > 0 ? 1 : 4
+        concept_id: 1
       });
 
       if (soapRes.status === 409) {
-        logToConsole(`⚠️ [SOAP FAULT 409 RECIBIDO] El concepto ya fue clasificado previamente por este usuario en PostgreSQL.`);
+        logToConsole(`⚠️ [SOAP FAULT 409] El concepto ya fue clasificado previamente por este usuario.`);
         showToast("⚠️ SOAP Fault 409: Concepto ya clasificado por este usuario.", "warning");
       } else if (soapRes.status === 200) {
-        logToConsole(`✅ [SOAP 200 OK] Clasificación registrada exitosamente en PostgreSQL (tabla clasificaciones_cloud).`);
-        showToast("✅ Clasificación registrada en la base de datos vía SOAP.", "success");
+        logToConsole(`✅ [SOAP 200 OK] Clasificación registrada en PostgreSQL (clasificaciones_cloud).`);
+        showToast("✅ Clasificación registrada en base de datos vía SOAP.", "success");
       }
       displayRawXml(soapRes.rawXml);
     }
@@ -405,7 +461,7 @@ async function handleAnalyzeClick() {
   }
 }
 
-function renderResults(winner, allResults, totalScore, confidence, userInfo) {
+function renderResults(winner, allResults, totalScore, confidence, info) {
   const resultCard = document.getElementById("resultCard");
   const winnerBadge = document.getElementById("winnerBadge");
   const winnerTitle = document.getElementById("winnerTitle");
@@ -420,7 +476,13 @@ function renderResults(winner, allResults, totalScore, confidence, userInfo) {
 
   winnerBadge.textContent = winner.modelo;
   winnerBadge.className = `model-pill pill-${winner.modelo.toLowerCase()}`;
-  winnerTitle.textContent = winner.nombreCompleto;
+  
+  if (info.libro) {
+    winnerTitle.textContent = `${info.libro.titulo} ➔ ${winner.nombreCompleto}`;
+  } else {
+    winnerTitle.textContent = winner.nombreCompleto;
+  }
+  
   winnerDesc.textContent = winner.justificacion;
 
   confidenceBar.style.width = `${confidence}%`;
@@ -442,111 +504,130 @@ function renderResults(winner, allResults, totalScore, confidence, userInfo) {
   if (winner.bookMatches && winner.bookMatches.length > 0) {
     bookReferences.innerHTML = `
       <h4 style="margin-top: 1rem; margin-bottom: 0.5rem; color: #38bdf8; font-size: 0.95rem;">
-        📚 Libros del Catálogo XML que avalan esta clasificación:
+        📚 Conceptos y Libros del Catálogo XML que justifican este dictamen:
       </h4>
       <ul style="list-style: none; padding-left: 0; font-size: 0.85rem; color: #cbd5e1;">
         ${winner.bookMatches.map(m => `
           <li style="margin-bottom: 0.35rem; padding: 0.4rem 0.6rem; background: rgba(255,255,255,0.03); border-radius: 4px; border-left: 3px solid #38bdf8;">
-            <strong>${m.libro}</strong> (ISBN: <code>${m.isbn}</code>) — Concepto: <em>${m.tema}</em>
+            <strong>${m.libro}</strong> (ISBN: <code>${m.isbn}</code>) — Tema: <em>${m.tema}</em>
           </li>
         `).join("")}
       </ul>
     `;
   } else {
-    bookReferences.innerHTML = `
-      <p style="font-size: 0.85rem; color: #94a3b8; margin-top: 0.75rem; font-style: italic;">
-        ℹ️ Clasificación fundamentada en reglas heurísticas del léxico formal de Cloud Computing.
-      </p>
-    `;
+    bookReferences.innerHTML = "";
   }
+
+  showToast(`¡Libro clasificado exitosamente como ${winner.modelo}!`, "success");
 }
 
 function logToConsole(message) {
-  const consoleElem = document.getElementById("xmlConsole");
-  if (consoleElem) {
-    const timeStr = new Date().toLocaleTimeString();
-    consoleElem.textContent += `[${timeStr}] ${message}\n`;
-    consoleElem.scrollTop = consoleElem.scrollHeight;
-  }
+  const consoleEl = document.getElementById("consoleLogs");
+  if (!consoleEl) return;
+  const timestamp = new Date().toLocaleTimeString();
+  consoleEl.textContent += `[${timestamp}] ${message}\n`;
+  consoleEl.scrollTop = consoleEl.scrollHeight;
 }
 
-function displayRawXml(xmlText) {
-  const xmlDisplay = document.getElementById("rawXmlPayload");
-  if (xmlDisplay) {
-    xmlDisplay.textContent = xmlText;
-  }
+function displayRawXml(rawXml) {
+  const viewer = document.getElementById("rawXmlViewer");
+  if (!viewer) return;
+  viewer.textContent = rawXml;
+}
+
+function showToast(text, type = "info") {
+  const toast = document.getElementById("toastNotification");
+  if (!toast) return;
+  toast.textContent = text;
+  toast.className = `toast-box toast-${type} show`;
+  setTimeout(() => {
+    toast.className = "toast-box";
+  }, 4000);
 }
 
 function setLoadingState(isLoading) {
   const btn = document.getElementById("btnAnalyze");
-  if (btn) {
-    btn.disabled = isLoading;
-    btn.textContent = isLoading ? "Analizando XML de la Nube..." : "Analizar y Clasificar (XML)";
+  if (!btn) return;
+  if (isLoading) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Clasificando...';
+  } else {
+    btn.disabled = false;
+    btn.innerHTML = '<span class="btn-icon">⚡</span> Clasificar Libro (XML)';
   }
 }
-
-function showToast(msg, type) {
-  const toast = document.getElementById("toastNotification");
-  if (toast) {
-    toast.textContent = msg;
-    toast.className = `toast-box show toast-${type}`;
-    setTimeout(() => {
-      toast.className = "toast-box";
-    }, 4500);
-  }
-}
-
-const SAMPLE_QUERIES = {
-  iaas: "Necesito aprovisionar máquinas virtuales en Compute Engine con una VPC personalizada, subredes privadas y almacenamiento persistente en bloques para soportar particionamiento.",
-  paas: "Queremos desplegar nuestros contenedores y Pods en Kubernetes sin gestionar servidores físicos, utilizando Google App Engine y un runtime administrado con integración CI/CD.",
-  saas: "La empresa migrará sus cuentas corporativas a Google Workspace y una plataforma de CRM en la nube consumida 100% por navegador web sin requerir instalación local.",
-  faas: "Buscamos implementar funciones sin servidor efímeras en Cloud Functions que se activen automáticamente ante eventos HTTP y escalen a cero cuando no haya tráfico."
-};
 
 function insertSample(type) {
-  const input = document.getElementById("inputText");
-  if (input && SAMPLE_QUERIES[type]) {
-    input.value = SAMPLE_QUERIES[type];
+  const samples = {
+    iaas: "Este libro cubre infraestructura como servicio: aprovisionamiento de máquinas virtuales (VM), VPC, subredes, discos persistentes en bloque, balanceadores de carga y reglas de firewall.",
+    paas: "Este libro aborda plataformas como servicio: despliegue de contenedores en Kubernetes, gestión de Pods, microservicios distribuidos, API Gateways, middleware y runtimes de ejecución.",
+    saas: "Este libro analiza aplicaciones de software como servicio listas para el usuario final: correo electrónico en la nube, ofimática web, CRM, ERP y suites colaborativas consumidas vía navegador.",
+    faas: "Este libro se especializa en arquitecturas serverless y funciones como servicio (FaaS): Cloud Functions, AWS Lambda, ejecución disparada por eventos HTTP o triggers y escalado automático a cero."
+  };
+
+  const textEl = document.getElementById("inputText");
+  if (textEl && samples[type]) {
+    textEl.value = samples[type];
+    logToConsole(`[EJEMPLO CARGADO] Se insertó descripción de prueba para: ${type.toUpperCase()}`);
+  }
+}
+
+async function checkServerHealth() {
+  const serverUrl = document.getElementById("inputServerUrl").value.trim() || DEFAULT_CLOUD_URL;
+  const statusBadge = document.getElementById("serverStatusBadge");
+  const statusText = document.getElementById("serverStatusText");
+
+  statusBadge.className = "status-badge checking";
+  statusText.textContent = "Verificando conexión...";
+  logToConsole(`[HEALTH CHECK] Conectando a ${serverUrl}/health...`);
+
+  try {
+    const res = await fetch(`${serverUrl.replace(/\/+$/, '')}/health`, { method: "GET" });
+    if (res.ok) {
+      const data = await res.json();
+      statusBadge.className = "status-badge online";
+      statusText.textContent = `Servidor ONLINE: Base de datos connected`;
+      logToConsole(`✅ [HEALTH OK] Microservicio activo en Google Cloud. PostgreSQL conectado.`);
+      showToast("Conexión con la nube verificada exitosamente.", "success");
+      
+      // Auto-load books catalog
+      fetchCatalogTopicsFromXml(serverUrl).then(data => {
+        displayRawXml(data.rawXml);
+      }).catch(e => logToConsole(`Advertencia al cargar catalogo: ${e.message}`));
+
+    } else {
+      throw new Error(`Status ${res.status}`);
+    }
+  } catch (err) {
+    statusBadge.className = "status-badge offline";
+    statusText.textContent = "Servidor OFFLINE / Error de Conexión";
+    logToConsole(`❌ [HEALTH ERROR] No se pudo contactar a ${serverUrl}: ${err.message}`);
+    showToast("Error de conexión con el microservicio en la nube.", "error");
   }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  logToConsole("Iniciando Cliente Electron XML para SC3705...");
-  logToConsole(`Instancia remota objetivo: ${DEFAULT_CLOUD_URL}`);
-
   document.getElementById("btnAnalyze").addEventListener("click", handleAnalyzeClick);
-  
+  document.getElementById("btnTestHealth").addEventListener("click", checkServerHealth);
+  document.getElementById("btnReloadBooks").addEventListener("click", () => {
+    const url = document.getElementById("inputServerUrl").value.trim() || DEFAULT_CLOUD_URL;
+    fetchCatalogTopicsFromXml(url);
+  });
   document.getElementById("btnLoadXml").addEventListener("click", async () => {
-    const serverUrl = document.getElementById("inputServerUrl").value.trim() || DEFAULT_CLOUD_URL;
+    const url = document.getElementById("inputServerUrl").value.trim() || DEFAULT_CLOUD_URL;
     try {
-      setLoadingState(true);
-      const res = await fetchCatalogTopicsFromXml(serverUrl);
-      displayRawXml(res.rawXml);
-      showToast(`Catálogo XML cargado: ${res.topics.length} temas disponibles.`, "success");
-    } catch (err) {
-      logToConsole(`Error al cargar catálogo XML: ${err.message}`);
-      alert(`Error al conectar con la instancia cloud: ${err.message}`);
-    } finally {
-      setLoadingState(false);
-    }
-  });
-
-  document.getElementById("btnTestHealth").addEventListener("click", async () => {
-    const serverUrl = document.getElementById("inputServerUrl").value.trim() || DEFAULT_CLOUD_URL;
-    const healthUrl = `${serverUrl.replace(/\/+$/, '')}/health`;
-    logToConsole(`Comprobando conectividad en: ${healthUrl}`);
-    try {
-      const res = await fetch(healthUrl);
-      const data = await res.json();
-      logToConsole(`Estado del servidor: ${JSON.stringify(data)}`);
-      showToast(`Servidor ONLINE: Base de datos ${data.database}`, "success");
+      const data = await fetchCatalogTopicsFromXml(url);
+      displayRawXml(data.rawXml);
+      showToast("Catálogo XML recibido y mostrado en consola.", "info");
     } catch (e) {
-      logToConsole(`Fallo de conexión: ${e.message}`);
-      showToast("Fallo al conectar con el servidor", "danger");
+      alert(`Error al obtener XML: ${e.message}`);
     }
   });
-
   document.getElementById("btnClearConsole").addEventListener("click", () => {
-    document.getElementById("xmlConsole").textContent = "";
+    document.getElementById("consoleLogs").textContent = "";
+    document.getElementById("rawXmlViewer").textContent = "<!-- Consola limpia -->";
   });
+
+  // Automatic connection test on launch
+  setTimeout(checkServerHealth, 600);
 });
