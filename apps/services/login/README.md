@@ -25,7 +25,23 @@ Microservicio independiente en **Python / Flask / Psycopg 3 / PostgreSQL** que r
 
 ---
 
-## 2. Instalación y ejecución
+## 2. Credenciales: son tres cosas distintas
+
+Es la confusión más común de este proyecto. No son intercambiables:
+
+| # | Credencial | Dónde vive | Para qué sirve |
+| :--- | :--- | :--- | :--- |
+| 1 | **`postgres` / `Azaed155`** | Motor PostgreSQL **local** | Administrar el motor de tu máquina. **No tiene la base `library`.** |
+| 2 | **`library_user` / `666`** | Base **`library` en la instancia de GCloud** | Es el valor de `DB_PASSWORD` en el `.env`. Conecta el microservicio con PostgreSQL. |
+| 3 | **`666`** | Tabla `users`, como **hash bcrypt** | Es la contraseña de los **usuarios de la aplicación** (`admin`, `usuario1`…), la que se teclea en `POST /login`. |
+
+**La 3 no tiene nada que ver con psql.** La 1 y la 2 son credenciales del *motor* de base de datos; la 3 es de los *usuarios de la aplicación* y se guarda hasheada.
+
+> La base `library` **no existe en tu máquina local**: vive en la instancia. Por eso `DB_HOST=localhost` funciona allá y falla aquí.
+
+---
+
+## 3. Instalación y ejecución
 
 ```bash
 cd apps/services/login
@@ -55,7 +71,7 @@ python app.py
 
 ---
 
-## 3. Endpoints
+## 4. Endpoints
 
 | Método | Endpoint | Función | Sesión | CAPTCHA |
 | :--- | :--- | :--- | :---: | :---: |
@@ -82,7 +98,7 @@ python app.py
 
 ---
 
-## 4. Sesión sin cookies
+## 5. Sesión sin cookies
 
 El servicio **no usa cookies**. La sesión vive del lado del servidor y el cliente la identifica con un token:
 
@@ -99,7 +115,7 @@ POST /logout           -> header: X-Session-Token: <token>
 
 ---
 
-## 5. CAPTCHA sin interfaz gráfica
+## 6. CAPTCHA sin interfaz gráfica
 
 `GET /captcha` devuelve una pregunta aritmética y un `captcha_id` que **contiene la respuesta firmada con HMAC**, no almacenada:
 
@@ -115,7 +131,7 @@ POST /logout           -> header: X-Session-Token: <token>
 
 ---
 
-## 6. Verificación con Postman
+## 7. Verificación con Postman
 
 1. Importa `docs/login-microservice.postman_collection.json`.
 2. Ejecuta la colección con el **Collection Runner**, de arriba hacia abajo.
@@ -131,7 +147,7 @@ Para el registro se usa el correo único por corrida `usuario.<timestamp>@librar
 
 ---
 
-## 7. Prueba automatizada sin base de datos
+## 8. Prueba automatizada sin base de datos
 
 ```bash
 ./venv/Scripts/python.exe tests/smoke_test.py     # Windows
@@ -142,7 +158,7 @@ Reemplaza la capa de datos por un doble en memoria y valida 39 aserciones del fl
 
 ---
 
-## 8. Nivel 3 de Richardson (HATEOAS)
+## 9. Nivel 3 de Richardson (HATEOAS)
 
 Toda respuesta incluye un bloque de hipermedia:
 
@@ -161,7 +177,7 @@ Toda respuesta incluye un bloque de hipermedia:
 
 ---
 
-## 9. Seguridad implementada
+## 10. Seguridad implementada
 
 | Tema | Medida |
 | :--- | :--- |
