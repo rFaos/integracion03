@@ -1,0 +1,504 @@
+{
+  "info": {
+    "name": "INTEGRACION03 - Login Microservice",
+    "description": "Colección de verificación del microservicio de autenticación y gestión de usuarios.\n\nFormato predeterminado: XML. Para JSON agrega ?format=json.\nPostman envía 'Accept: */*' por defecto, por lo que SIN ?format=json la respuesta llega en XML y debe parsearse con xml2Json().\n\nOrden recomendado: ejecutar con el Collection Runner de arriba hacia abajo.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:5000" },
+    { "key": "user_email", "value": "" },
+    { "key": "user_password", "value": "S3gura!2026" },
+    { "key": "seed_email", "value": "usuario1@library.local" },
+    { "key": "seed_password", "value": "666" },
+    { "key": "captcha_id", "value": "" },
+    { "key": "captcha_answer", "value": "" },
+    { "key": "session_token", "value": "" },
+    { "key": "user_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "00 - API Root (HATEOAS)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/?format=json", "host": ["{{base_url}}"], "path": [""], "query": [{ "key": "format", "value": "json" }] },
+        "description": "Punto de entrada HATEOAS: publica todos los recursos disponibles (Nivel 3 de Richardson)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "const links = pm.response.json()._links;",
+              "pm.test('Expone los 7 enlaces del API (HATEOAS)', () => {",
+              "    ['register','login','logout','session','health','captcha','docs'].forEach(r =>",
+              "        pm.expect(links).to.have.property(r));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 - Health (XML por defecto)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] },
+        "description": "Sin ?format se responde XML (formato predeterminado del enunciado)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('Content-Type es application/xml', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/xml'));",
+              "const xml = xml2Json(pm.response.text());",
+              "pm.test('status = success', () => pm.expect(xml.response.status).to.eql('success'));",
+              "pm.test('PostgreSQL conectado', () => pm.expect(xml.response.data.database).to.eql('connected'));",
+              "pm.test('Incluye bloque <links>', () => pm.expect(xml.response).to.have.property('links'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Health (JSON)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/health?format=json", "host": ["{{base_url}}"], "path": ["health"], "query": [{ "key": "format", "value": "json" }] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('Responde JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+              "const body = pm.response.json();",
+              "pm.test('status = success', () => pm.expect(body.status).to.eql('success'));",
+              "pm.test('Incluye _links', () => pm.expect(body._links).to.have.property('self'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Captcha (nuevo desafío)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/captcha?format=json", "host": ["{{base_url}}"], "path": ["captcha"], "query": [{ "key": "format", "value": "json" }] },
+        "description": "Resuelve el desafío y lo guarda en variables. El CAPTCHA es de un solo uso, así que debe pedirse uno nuevo antes de cada registro/login."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "const data = pm.response.json().data;",
+              "pm.test('Devuelve captcha_id', () => pm.expect(data).to.have.property('captcha_id'));",
+              "pm.test('La pregunta es aritmética', () => pm.expect(data.question).to.match(/\\d+\\s*[+\\-]\\s*\\d+/));",
+              "// Se resuelve y se guarda para el siguiente request de autenticación",
+              "pm.collectionVariables.set('captcha_id', data.captcha_id);",
+              "const expr = data.question.match(/\\d+\\s*[+\\-]\\s*\\d+/)[0];",
+              "pm.collectionVariables.set('captcha_answer', String(eval(expr)));",
+              "console.log('CAPTCHA resuelto:', expr, '=', pm.collectionVariables.get('captcha_answer'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Register (JSON)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Fabián\",\n  \"apellido_paterno\": \"Azaed\",\n  \"apellido_materno\": \"Orta\",\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\",\n  \"captcha_id\": \"{{captcha_id}}\",\n  \"captcha_answer\": \"{{captcha_answer}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{base_url}}/register?format=json", "host": ["{{base_url}}"], "path": ["register"], "query": [{ "key": "format", "value": "json" }] }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Correo único por corrida para que el registro no choque con un 409",
+              "pm.collectionVariables.set('user_email', 'usuario.' + Date.now() + '@library.local');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created', () => pm.response.to.have.status(201));",
+              "pm.test('Devuelve encabezado Location', () => pm.response.to.have.header('Location'));",
+              "const body = pm.response.json();",
+              "pm.test('status = success', () => pm.expect(body.status).to.eql('success'));",
+              "pm.test('No expone el hash de la contraseña', () => pm.expect(JSON.stringify(body)).to.not.include('password_hash'));",
+              "pm.collectionVariables.set('user_id', body.data.user.id);",
+              "console.log('Usuario registrado:', body.data.user.email, '| id =', body.data.user.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04b - Captcha (nuevo desafío)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/captcha?format=json", "host": ["{{base_url}}"], "path": ["captcha"], "query": [{ "key": "format", "value": "json" }] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const d = pm.response.json().data;",
+              "pm.test('Desafío obtenido', () => pm.expect(d.captcha_id).to.be.a('string'));",
+              "pm.collectionVariables.set('captcha_id', d.captcha_id);",
+              "pm.collectionVariables.set('captcha_answer', String(eval(d.question.match(/\\d+\\s*[+\\-]\\s*\\d+/)[0])));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Register (correo duplicado -> 409)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Fabián\",\n  \"apellido_paterno\": \"Azaed\",\n  \"apellido_materno\": \"Orta\",\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\",\n  \"captcha_id\": \"{{captcha_id}}\",\n  \"captcha_answer\": \"{{captcha_answer}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{base_url}}/register?format=json", "host": ["{{base_url}}"], "path": ["register"], "query": [{ "key": "format", "value": "json" }] },
+        "description": "Reenvía el mismo correo registrado en el paso 04 para provocar el 409. Requiere pedir un CAPTCHA nuevo antes."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test('Código EMAIL_ALREADY_EXISTS', () => pm.expect(body.error.code).to.eql('EMAIL_ALREADY_EXISTS'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Register (correo inválido -> 400)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Test\",\n  \"apellido_paterno\": \"Prueba\",\n  \"apellido_materno\": \"Prueba\",\n  \"email\": \"no-es-un-correo\",\n  \"password\": \"S3gura!2026\",\n  \"captcha_id\": \"x\",\n  \"captcha_answer\": \"0\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{base_url}}/register?format=json", "host": ["{{base_url}}"], "path": ["register"], "query": [{ "key": "format", "value": "json" }] },
+        "description": "La validación del correo ocurre ANTES del CAPTCHA, por lo que no consume el desafío."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+              "pm.test('Código INVALID_EMAIL', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_EMAIL'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06b - Captcha (nuevo desafío)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/captcha?format=json", "host": ["{{base_url}}"], "path": ["captcha"], "query": [{ "key": "format", "value": "json" }] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const d = pm.response.json().data;",
+              "pm.test('Desafío obtenido', () => pm.expect(d.captcha_id).to.be.a('string'));",
+              "pm.collectionVariables.set('captcha_id', d.captcha_id);",
+              "pm.collectionVariables.set('captcha_answer', String(eval(d.question.match(/\\d+\\s*[+\\-]\\s*\\d+/)[0])));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - Login (JSON)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\",\n  \"captcha_id\": \"{{captcha_id}}\",\n  \"captcha_answer\": \"{{captcha_answer}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{base_url}}/login?format=json", "host": ["{{base_url}}"], "path": ["login"], "query": [{ "key": "format", "value": "json" }] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Devuelve el token de sesión', () => pm.expect(body.data.session.token).to.be.a('string'));",
+              "pm.test('La sesión dura 30 minutos', () => pm.expect(body.data.session.expires_in).to.eql(1800));",
+              "pm.test('Indica el header a usar', () => pm.expect(body.data.session.header).to.eql('X-Session-Token'));",
+              "pm.test('Incluye _links (HATEOAS)', () => {",
+              "    pm.expect(body._links).to.have.property('logout');",
+              "    pm.expect(body._links.logout).to.have.property('href');",
+              "});",
+              "// Encadena el token para /session, /users y /logout",
+              "pm.collectionVariables.set('session_token', body.data.session.token);",
+              "pm.collectionVariables.set('user_id', body.data.user.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07b - Captcha (nuevo desafío)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/captcha?format=json", "host": ["{{base_url}}"], "path": ["captcha"], "query": [{ "key": "format", "value": "json" }] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const d = pm.response.json().data;",
+              "pm.test('Desafío obtenido', () => pm.expect(d.captcha_id).to.be.a('string'));",
+              "pm.collectionVariables.set('captcha_id', d.captcha_id);",
+              "pm.collectionVariables.set('captcha_answer', String(eval(d.question.match(/\\d+\\s*[+\\-]\\s*\\d+/)[0])));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 - Login (XML por defecto)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{seed_email}}\",\n  \"password\": \"{{seed_password}}\",\n  \"captcha_id\": \"{{captcha_id}}\",\n  \"captcha_answer\": \"{{captcha_answer}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{base_url}}/login", "host": ["{{base_url}}"], "path": ["login"] },
+        "description": "Sin ?format se responde XML. Entra el usuario sembrado en library_data.sql (usuario1@library.local / 666)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('Content-Type es application/xml', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/xml'));",
+              "const xml = xml2Json(pm.response.text());",
+              "pm.test('status = success', () => pm.expect(xml.response.status).to.eql('success'));",
+              "pm.test('Devuelve token en XML', () => pm.expect(xml.response.data.session.token).to.be.a('string'));",
+              "pm.test('Incluye bloque <links>', () => pm.expect(xml.response).to.have.property('links'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08b - Captcha (nuevo desafío)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/captcha?format=json", "host": ["{{base_url}}"], "path": ["captcha"], "query": [{ "key": "format", "value": "json" }] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const d = pm.response.json().data;",
+              "pm.test('Desafío obtenido', () => pm.expect(d.captcha_id).to.be.a('string'));",
+              "pm.collectionVariables.set('captcha_id', d.captcha_id);",
+              "pm.collectionVariables.set('captcha_answer', String(eval(d.question.match(/\\d+\\s*[+\\-]\\s*\\d+/)[0])));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 - Login (credenciales inválidas -> 401)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{seed_email}}\",\n  \"password\": \"contrasena-incorrecta\",\n  \"captcha_id\": \"{{captcha_id}}\",\n  \"captcha_answer\": \"{{captcha_answer}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{base_url}}/login?format=json", "host": ["{{base_url}}"], "path": ["login"], "query": [{ "key": "format", "value": "json" }] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Código INVALID_CREDENTIALS', () => pm.expect(body.error.code).to.eql('INVALID_CREDENTIALS'));",
+              "pm.test('Mensaje genérico (no revela si el correo existe)', () =>",
+              "    pm.expect(body.error.message).to.not.match(/no existe|no registrado/i));",
+              "pm.test('Incluye _links de recuperación', () => pm.expect(body._links).to.have.property('login'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 - Session (con token)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "X-Session-Token", "value": "{{session_token}}" }],
+        "url": { "raw": "{{base_url}}/session?format=json", "host": ["{{base_url}}"], "path": ["session"], "query": [{ "key": "format", "value": "json" }] },
+        "description": "La sesión viaja en el header X-Session-Token, NO en una cookie."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('authenticated = true', () => pm.expect(body.data.authenticated).to.eql(true));",
+              "pm.test('Devuelve el usuario', () => pm.expect(body.data.user).to.have.property('email'));",
+              "pm.test('Quedan menos de 30 minutos de sesión', () => pm.expect(body.data.session.remaining_seconds).to.be.below(1801));",
+              "pm.test('No se creó ninguna cookie', () => pm.expect(pm.response.headers.has('Set-Cookie')).to.eql(false));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 - Session (sin token -> 401)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/session?format=json", "host": ["{{base_url}}"], "path": ["session"], "query": [{ "key": "format", "value": "json" }] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+              "pm.test('Código SESSION_REQUIRED', () => pm.expect(pm.response.json().error.code).to.eql('SESSION_REQUIRED'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 - Users (recurso REST real)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "X-Session-Token", "value": "{{session_token}}" }],
+        "url": { "raw": "{{base_url}}/users/{{user_id}}?format=json", "host": ["{{base_url}}"], "path": ["users", "{{user_id}}"], "query": [{ "key": "format", "value": "json" }] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Devuelve el recurso user', () => pm.expect(body.data.user.id).to.eql(Number(pm.collectionVariables.get('user_id'))));",
+              "pm.test('Nunca expone password_hash', () => pm.expect(JSON.stringify(body)).to.not.include('password_hash'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 - Logout",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "X-Session-Token", "value": "{{session_token}}" }],
+        "url": { "raw": "{{base_url}}/logout?format=json", "host": ["{{base_url}}"], "path": ["logout"], "query": [{ "key": "format", "value": "json" }] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('Sesión revocada', () => pm.expect(pm.response.json().data.revoked).to.eql(true));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 - Session tras logout (token revocado -> 401)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "X-Session-Token", "value": "{{session_token}}" }],
+        "url": { "raw": "{{base_url}}/session?format=json", "host": ["{{base_url}}"], "path": ["session"], "query": [{ "key": "format", "value": "json" }] },
+        "description": "Demuestra que la sesión server-side se revoca de inmediato (algo que una cookie firmada no permite)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+              "pm.test('Código SESSION_INVALID', () => pm.expect(pm.response.json().error.code).to.eql('SESSION_INVALID'));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

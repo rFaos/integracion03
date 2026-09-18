@@ -33,3 +33,11 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
+# Empaquetados de entrega (se suben a la plataforma del curso, no al repo)
+# apps.zip pesa ~216 MB y supera el limite de 100 MB por archivo de GitHub.
+apps.zip
+*.tar.gz
+
+# Estado local de herramientas
+.workbuddy-ai/
