@@ -545,16 +545,40 @@ def health():
     started = time.time()
     try:
         row = fetch_one("SELECT version() AS version, CURRENT_TIMESTAMP AS server_time")
+
+        # Verifica que la migración 01_migration_auth.sql ya se aplicó.
+        # Sin ella, /login y /register fallan con 500 porque las columnas
+        # de identidad y la tabla de sesiones todavía no existen.
+        schema = fetch_one(
+            """SELECT
+                 (SELECT COUNT(*) FROM information_schema.columns
+                   WHERE table_schema = current_schema() AND table_name = 'users'
+                     AND column_name IN ('nombre', 'apellido_paterno',
+                                         'apellido_materno', 'email')) AS user_columns,
+                 (SELECT COUNT(*) FROM information_schema.tables
+                   WHERE table_schema = current_schema()
+                     AND table_name = 'user_sessions') AS sessions_table"""
+        )
+        migrated = schema["user_columns"] == 4 and schema["sessions_table"] == 1
+
+        data = {
+            "service": SERVICE_NAME,
+            "version": APP_VERSION,
+            "database": "connected",
+            "postgres_version": (row["version"] or "").split(" on ")[0],
+            "schema": "ready" if migrated else "migration_pending",
+            "server_time": row["server_time"].isoformat(),
+            "uptime_seconds": round(time.time() - started, 3),
+        }
+        if not migrated:
+            data["migration_hint"] = (
+                "Falta aplicar sql/01_migration_auth.sql sobre la base de datos library. "
+                "Comando: psql -U library_user -d library -f sql/01_migration_auth.sql"
+            )
+
         return ok(
-            message="Servicio operativo.",
-            data={
-                "service": SERVICE_NAME,
-                "version": APP_VERSION,
-                "database": "connected",
-                "postgres_version": (row["version"] or "").split(" on ")[0],
-                "server_time": row["server_time"].isoformat(),
-                "uptime_seconds": round(time.time() - started, 3),
-            },
+            message="Servicio operativo." if migrated else "Servicio operativo, pero falta aplicar la migración.",
+            data=data,
             links={"self": link("/health"), "docs": link("/docs"), "captcha": link("/captcha")},
         )
     except Exception as exc:

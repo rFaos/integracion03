@@ -37,6 +37,10 @@ def fake_fetch_one(sql, params=()):
     if s.startswith("SELECT version()"):
         return {"version": "PostgreSQL 16.0 (fake)", "server_time": datetime.now(timezone.utc)}
 
+    if "information_schema" in s:
+        # Simula la migración ya aplicada
+        return {"user_columns": 4, "sessions_table": 1}
+
     if s.startswith("INSERT INTO users"):
         if any(u["email"] == params[3] for u in USERS):
             raise UniqueViolation("duplicate key value violates unique constraint")

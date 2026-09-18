@@ -43,6 +43,8 @@ python app.py
 - **Swagger UI:** http://localhost:5000/docs
 - **Health check:** http://localhost:5000/health
 
+> `GET /health` incluye un campo `schema` que vale `ready` o `migration_pending`. Si aparece `migration_pending`, falta aplicar `sql/01_migration_auth.sql`: sin esa migración `/login` y `/register` responden **500** porque las columnas de identidad y la tabla `user_sessions` todavía no existen.
+
 ---
 
 ## 3. Endpoints
