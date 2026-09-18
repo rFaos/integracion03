@@ -5,7 +5,7 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "base_url", "value": "http://localhost:5000" },
+    { "key": "base_url", "value": "http://34.51.29.27:5000" },
     { "key": "user_email", "value": "" },
     { "key": "user_password", "value": "S3gura!2026" },
     { "key": "seed_email", "value": "usuario1@library.local" },
@@ -318,11 +318,11 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"email\": \"{{seed_email}}\",\n  \"password\": \"{{seed_password}}\",\n  \"captcha_id\": \"{{captcha_id}}\",\n  \"captcha_answer\": \"{{captcha_answer}}\"\n}",
+          "raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\",\n  \"captcha_id\": \"{{captcha_id}}\",\n  \"captcha_answer\": \"{{captcha_answer}}\"\n}",
           "options": { "raw": { "language": "json" } }
         },
         "url": { "raw": "{{base_url}}/login", "host": ["{{base_url}}"], "path": ["login"] },
-        "description": "Sin ?format se responde XML. Entra el usuario sembrado en library_data.sql (usuario1@library.local / 666)."
+        "description": "Sin ?format se responde XML. Usa el mismo usuario registrado en el paso 04, por lo que la colección es autocontenida."
       },
       "event": [
         {
@@ -370,7 +370,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"email\": \"{{seed_email}}\",\n  \"password\": \"contrasena-incorrecta\",\n  \"captcha_id\": \"{{captcha_id}}\",\n  \"captcha_answer\": \"{{captcha_answer}}\"\n}",
+          "raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"contrasena-incorrecta\",\n  \"captcha_id\": \"{{captcha_id}}\",\n  \"captcha_answer\": \"{{captcha_answer}}\"\n}",
           "options": { "raw": { "language": "json" } }
         },
         "url": { "raw": "{{base_url}}/login?format=json", "host": ["{{base_url}}"], "path": ["login"], "query": [{ "key": "format", "value": "json" }] }

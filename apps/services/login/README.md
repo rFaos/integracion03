@@ -16,7 +16,11 @@ Microservicio independiente en **Python / Flask / Psycopg 3 / PostgreSQL** que r
 | `requirements.txt` | Dependencias de Python. |
 | `.env.example` | Plantilla de configuración (sin secretos reales). |
 | `sql/01_migration_auth.sql` | Migración de `users` y creación de `user_sessions`. |
-| `tests/smoke_test.py` | Prueba del flujo completo sin necesidad de PostgreSQL. |
+| `sql/02_fix_seed_passwords.sql` | Corrige los hashes bcrypt inválidos de los usuarios sembrados. |
+| `tests/smoke_test.py` | 39 aserciones del flujo completo sin necesidad de PostgreSQL. |
+| `tests/e2e_test.py` | Prueba end-to-end contra una instancia desplegada. |
+| `docs/EVIDENCIA.md` | Guía de Swagger, resultados de validación y reflexión. |
+| `docs/evidencia_e2e.txt` | Salida cruda de la última validación end-to-end. |
 | `docs/login-microservice.postman_collection.json` | Colección de Postman con aserciones y encadenamiento. |
 
 ---
@@ -31,6 +35,10 @@ pip install -r requirements.txt
 
 # 1) Aplicar la migración a la base de datos library
 psql -U library_user -d library -f sql/01_migration_auth.sql
+
+# 1b) Solo si la base ya tenía cargados los datos semilla: corrige los
+#     hashes bcrypt inválidos de admin y usuario1..usuario10.
+psql -U library_user -d library -f sql/02_fix_seed_passwords.sql
 
 # 2) Configurar credenciales
 cp .env.example .env               # y edita DB_PASSWORD / SECRET_KEY

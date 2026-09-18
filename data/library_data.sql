@@ -5,19 +5,23 @@
 -- ==============================================================================
 
 -- 1. Usuarios del Sistema
--- Hash de '666' con bcrypt: $2a$10$w8M19lF58d601X6Zz/o48eQ5.pGf5qGhyf1l9HkM08V536gX3Vvea
+-- Hash de '666' con bcrypt (costo 10).
+-- NOTA: el valor anterior ($2a$10$w8M19lF58d601X6Zz/o48eQ5.pGf5qGhyf1l9HkM08V536gX3Vvea)
+--       era un placeholder INVÁLIDO: no correspondía a '666' ni a ninguna otra
+--       contraseña, por lo que admin y usuario1..usuario10 no podían autenticarse.
+--       Se reemplazó por un hash bcrypt verificado.
 INSERT INTO users (username, password_hash, role) VALUES
-('admin', '$2a$10$w8M19lF58d601X6Zz/o48eQ5.pGf5qGhyf1l9HkM08V536gX3Vvea', 'Administrador'),
-('usuario1', '$2a$10$w8M19lF58d601X6Zz/o48eQ5.pGf5qGhyf1l9HkM08V536gX3Vvea', 'Usuario'),
-('usuario2', '$2a$10$w8M19lF58d601X6Zz/o48eQ5.pGf5qGhyf1l9HkM08V536gX3Vvea', 'Usuario'),
-('usuario3', '$2a$10$w8M19lF58d601X6Zz/o48eQ5.pGf5qGhyf1l9HkM08V536gX3Vvea', 'Usuario'),
-('usuario4', '$2a$10$w8M19lF58d601X6Zz/o48eQ5.pGf5qGhyf1l9HkM08V536gX3Vvea', 'Usuario'),
-('usuario5', '$2a$10$w8M19lF58d601X6Zz/o48eQ5.pGf5qGhyf1l9HkM08V536gX3Vvea', 'Usuario'),
-('usuario6', '$2a$10$w8M19lF58d601X6Zz/o48eQ5.pGf5qGhyf1l9HkM08V536gX3Vvea', 'Usuario'),
-('usuario7', '$2a$10$w8M19lF58d601X6Zz/o48eQ5.pGf5qGhyf1l9HkM08V536gX3Vvea', 'Usuario'),
-('usuario8', '$2a$10$w8M19lF58d601X6Zz/o48eQ5.pGf5qGhyf1l9HkM08V536gX3Vvea', 'Usuario'),
-('usuario9', '$2a$10$w8M19lF58d601X6Zz/o48eQ5.pGf5qGhyf1l9HkM08V536gX3Vvea', 'Usuario'),
-('usuario10', '$2a$10$w8M19lF58d601X6Zz/o48eQ5.pGf5qGhyf1l9HkM08V536gX3Vvea', 'Usuario');
+('admin', '$2b$10$7rs4lCRN9rI54x6zxQg6ieIVBGyIgIFV5kkRSiwycjQFuIdJKXle6', 'Administrador'),
+('usuario1', '$2b$10$7rs4lCRN9rI54x6zxQg6ieIVBGyIgIFV5kkRSiwycjQFuIdJKXle6', 'Usuario'),
+('usuario2', '$2b$10$7rs4lCRN9rI54x6zxQg6ieIVBGyIgIFV5kkRSiwycjQFuIdJKXle6', 'Usuario'),
+('usuario3', '$2b$10$7rs4lCRN9rI54x6zxQg6ieIVBGyIgIFV5kkRSiwycjQFuIdJKXle6', 'Usuario'),
+('usuario4', '$2b$10$7rs4lCRN9rI54x6zxQg6ieIVBGyIgIFV5kkRSiwycjQFuIdJKXle6', 'Usuario'),
+('usuario5', '$2b$10$7rs4lCRN9rI54x6zxQg6ieIVBGyIgIFV5kkRSiwycjQFuIdJKXle6', 'Usuario'),
+('usuario6', '$2b$10$7rs4lCRN9rI54x6zxQg6ieIVBGyIgIFV5kkRSiwycjQFuIdJKXle6', 'Usuario'),
+('usuario7', '$2b$10$7rs4lCRN9rI54x6zxQg6ieIVBGyIgIFV5kkRSiwycjQFuIdJKXle6', 'Usuario'),
+('usuario8', '$2b$10$7rs4lCRN9rI54x6zxQg6ieIVBGyIgIFV5kkRSiwycjQFuIdJKXle6', 'Usuario'),
+('usuario9', '$2b$10$7rs4lCRN9rI54x6zxQg6ieIVBGyIgIFV5kkRSiwycjQFuIdJKXle6', 'Usuario'),
+('usuario10', '$2b$10$7rs4lCRN9rI54x6zxQg6ieIVBGyIgIFV5kkRSiwycjQFuIdJKXle6', 'Usuario');
 
 -- 2. Formatos
 INSERT INTO formats (id, name, description) VALUES

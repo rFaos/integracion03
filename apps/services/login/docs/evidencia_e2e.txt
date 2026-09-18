@@ -1,0 +1,63 @@
+=== 0. HEALTH: PostgreSQL en la instancia ===
+  [OK]   200 y database=connected
+  [OK]   PostgreSQL 16.x
+
+=== 1. MIGRACION: usuario sembrado usuario1@library.local / 666 ===
+  [FAIL] 200 -> la migracion se aplico y el backfill de email funciono   -> {
+  "status": "error",
+  "error": {
+    "code": "INVALID_CREDENTIALS",
+    "message": "El correo o la contraseña son incorrectos."
+  },
+  "_links": {
+    "login": {
+      "href": "/login",
+      "method": "POST"
+    },
+ 
+
+=== 2. REGISTRO contra PostgreSQL real ===
+  [OK]   201 Created
+  [OK]   Encabezado Location
+  [OK]   No expone password_hash
+  [OK]   Devuelve el id del usuario
+     -> usuario de prueba creado: e2e.test.1789773323@library.local | id = 14
+  [OK]   409 al repetir el correo (UniqueViolation de PostgreSQL)
+
+=== 3. LOGIN del usuario nuevo ===
+  [OK]   200 login correcto
+  [OK]   Incluye _links con logout
+
+=== 4. SESION (sin cookies) ===
+  [OK]   200 con token
+  [OK]   authenticated = true
+  [OK]   remaining_seconds <= 1800
+  [OK]   401 sin token
+
+=== 5. RECURSO /users/<id> ===
+  [OK]   200 en /users/<id>
+  [OK]   Nunca expone password_hash
+
+=== 6. FORMATO XML (predeterminado) ===
+  [OK]   200 en XML
+  [OK]   Content-Type application/xml
+  [OK]   Devuelve <token> en XML
+  [OK]   Incluye bloque <links>
+
+=== 7. LOGIN FALLIDO (anti-enumeracion) ===
+  [OK]   401 con contrasena incorrecta
+  [OK]   401 identico con correo inexistente (no revela existencia)
+
+=== 8. LOGOUT Y REVOCACION ===
+  [OK]   200 al cerrar sesion
+  [OK]   401 al reutilizar el token tras logout
+  [OK]   La sesion creada por XML tambien es valida (200)
+
+=== 9. CAPTCHA: un solo uso ===
+  [OK]   400 CAPTCHA_ALREADY_USED al reutilizarlo
+
+================================================================
+ RESULTADO CONTRA LA INSTANCIA: 25 OK, 1 fallidas
+   - FALLO: 200 -> la migracion se aplico y el backfill de email funciono
+================================================================
+ Usuario de prueba creado en la BD: e2e.test.1789773323@library.local
