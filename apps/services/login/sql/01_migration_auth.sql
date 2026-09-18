@@ -23,7 +23,11 @@ ALTER TABLE users ALTER COLUMN role SET DEFAULT 'Usuario';
 
 -- 3. Backfill de los 11 usuarios sembrados en library_data.sql ---------------
 --    (admin + usuario1..usuario10) para que puedan iniciar sesión por email.
-UPDATE users SET email = username || '@library.local' WHERE email IS NULL;
+--    Se usa COALESCE por si algún usuario ya no tuviera username: si no, la
+--    concatenación daría NULL y el correo quedaría vacío.
+UPDATE users
+   SET email = COALESCE(username, 'usuario' || id) || '@library.local'
+ WHERE email IS NULL;
 
 -- 4. Unicidad de email insensible a mayúsculas --------------------------------
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users (LOWER(email));
