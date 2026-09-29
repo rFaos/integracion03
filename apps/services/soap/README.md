@@ -5,6 +5,55 @@
 
 ---
 
+## 0. Autorización por JWT (v1.1.0)
+
+Este microservicio **protege sus operaciones de escritura con JWT** (RFC 7519,
+HS256) emitidos por el microservicio de login. **La autorización se decide por
+MÉTODO HTTP, no por ruta** — es lo único que permite que `GET /books` siga siendo
+público mientras `POST /books` exige identidad, y que los alias de escritura
+(incluido `POST /api/book/delete/{isbn}`, que es un `POST` que borra) no queden como
+puerta trasera.
+
+| Método | Autorización |
+|---|---|
+| `GET`, `HEAD`, `OPTIONS` | **Público** — cualquiera consulta el catálogo |
+| `POST`, `PUT`, `PATCH`, `DELETE` | **`Authorization: Bearer <access_token>` obligatorio** |
+
+Implementación: `jwt_auth.py` (verificador) + un guardia `@app.before_request`
+(`enforce_jwt`) en `app.py`. El verificador es una **copia deliberada** del de login:
+el contrato entre microservicios es el RFC 7519, no un módulo de Python compartido.
+
+El verificador comprueba, en orden: formato de 3 segmentos → `alg` permitido
+(`none` se **rechaza**) → firma HMAC-SHA256 en tiempo constante → `exp`/`nbf` con
+`leeway` → `iss == library-login` → `aud == library-api`. Cada rechazo devuelve un
+código distinto (`ALGORITHM_NONE_REJECTED`, `INVALID_SIGNATURE`, `TOKEN_EXPIRED`,
+`INVALID_AUDIENCE`) en vez de un 401 mudo, y los 401 incluyen
+`WWW-Authenticate: Bearer realm="library-books"`.
+
+Los dos `/health` publican una **huella** del secreto compartido
+(`secret_fingerprint`), para comprobar sin exponer la clave que login firma con la
+misma clave con la que este servicio verifica.
+
+Configuración en `.env`:
+
+```
+JWT_SECRET=<secreto compartido con el servicio de login>
+JWT_ALGORITHM=HS256
+JWT_ISSUER=library-login
+JWT_AUDIENCE=library-api
+LOGIN_BASE_URL=http://localhost:5000
+PUBLIC_UNSAFE_PATHS=
+```
+
+> **Trade-off documentado:** al verificar por firma, este servicio **no consulta** al
+> servicio de login ni a la base de datos (eso es lo que lo hace stateless y
+> escalable). El precio es que un `logout` no llega aquí al instante: el token sigue
+> siendo criptográficamente válido hasta que expire (≤ 15 minutos).
+
+Evidencia completa, capturas y reflexión: `entrega_jwt/` (ver `entrega_jwt/README.md`).
+
+---
+
 ## 1. Archivos en este Módulo
 
 - `app.py`: Microservicio RESTful en Python Flask con conexión directa a PostgreSQL usando `psycopg` (v3) y documentación OpenAPI/Swagger en `/docs`.

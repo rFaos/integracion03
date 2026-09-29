@@ -1,0 +1,237 @@
+<!DOCTYPE html><html lang='es'><head><meta charset='utf-8'><title>Bitácora de la app Python TK (Authorization: Bearer)</title><style>
+  * { box-sizing: border-box; }
+  body { margin:0; background:#0b1120; color:#e2e8f0;
+         font-family: "Segoe UI", Inter, system-ui, sans-serif; }
+  .wrap { padding: 26px 30px 40px; }
+  h1 { font-size: 21px; margin:0 0 4px; color:#fff; }
+  .sub { color:#94a3b8; font-size:12.5px; margin-bottom:18px; }
+  .mono { font-family: Consolas, "Cascadia Mono", monospace; }
+  pre { margin:0; white-space:pre-wrap; word-break:break-word; }
+  table { border-collapse: collapse; width:100%; font-size:12px; }
+  th, td { border:1px solid #1e293b; padding:4px 8px; text-align:left;
+           vertical-align:top; font-family: Consolas, monospace; }
+  th { background:#111c30; color:#7dd3fc; font-weight:600; }
+  .ok   { color:#4ade80; font-weight:700; }
+  .bad  { color:#f87171; font-weight:700; }
+  .muted{ color:#94a3b8; }
+  .tag  { display:inline-block; padding:2px 8px; border-radius:999px;
+          font-size:11px; font-weight:700; letter-spacing:.4px; }
+</style></head><body><div class='wrap'>
+    <h1>Bitácora de la app Python TK (Authorization: Bearer)</h1>
+    <div class="sub">El cliente de escritorio mostrando en la terminal cada petición con el encabezado del token y el refresco automático al recibir un 401.</div>
+    <div style="background:#05080f;border:1px solid #1e293b;border-radius:10px;padding:14px 16px;">
+      <div style="color:#64748b;font-size:11px;margin-bottom:10px;">
+        &#9679; consola &mdash; evidencia_app_python.txt
+      </div>
+      <pre class="mono" style="font-size:11.5px;line-height:1.42;"><span></span>
+<span style='color:#334155;'>====================================================================================</span>
+<span> APP PYTHON TK - SERVICIOS CON JWT</span>
+<span style='color:#334155;'>====================================================================================</span>
+<span style='color:#334155;'>====================================================================================</span>
+<span> CLIENTE DE ESCRITORIO DE LA LIBRERIA - microservicios + JWT (RFC 7519)</span>
+<span style='color:#334155;'>====================================================================================</span>
+<span> Microservicio de login  : http://127.0.0.1:5000</span>
+<span> Microservicio de libros : http://127.0.0.1:5001</span>
+<span style='color:#7dd3fc;'> Esquema de autorizacion : Authorization: Bearer &lt;access_token&gt;</span>
+<span> Metodos publicos (libros): GET /books y GET /books/{isbn} (sin token)</span>
+<span> Metodos protegidos       : POST / PUT / PATCH / DELETE (exigen token)</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span> Credencial en memoria    : (ninguna: la sesion inicia sin token)</span>
+<span> Renovacion automatica    : activa (POST /refresh al recibir 401)</span>
+<span style='color:#334155;'>====================================================================================</span>
+<span></span>
+<span style='color:#334155;'>====================================================================================</span>
+<span> 1. REGISTRO Y LOGIN (el login entrega access_token + refresh_token)</span>
+<span style='color:#334155;'>====================================================================================</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span> [16:53:03] GET http://127.0.0.1:5000/captcha?format=json</span>
+<span>   +-- AUTENTICACION ----------------------------------------------------------------</span>
+<span>   | Authorization: (sin token: peticion ANONIMA)</span>
+<span>   | (endpoint publico: no requiere token)</span>
+<span>   +-------------------------------------------------------------------------------</span>
+<span style='color:#fbbf24;'>   &lt;&lt;&lt; HTTP 200 en 31 ms   application/json</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span> [16:53:04] POST http://127.0.0.1:5000/register?format=json</span>
+<span>   +-- AUTENTICACION ----------------------------------------------------------------</span>
+<span>   | Authorization: (sin token: peticion ANONIMA)</span>
+<span>   | (endpoint publico: no requiere token)</span>
+<span>   +-------------------------------------------------------------------------------</span>
+<span style='color:#fbbf24;'>   &lt;&lt;&lt; HTTP 201 en 832 ms   application/json</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span>  Registro del usuario de prueba: OK (tk.demo.1790722383@library.local)</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span> [16:53:04] GET http://127.0.0.1:5000/captcha?format=json</span>
+<span>   +-- AUTENTICACION ----------------------------------------------------------------</span>
+<span>   | Authorization: (sin token: peticion ANONIMA)</span>
+<span>   | (endpoint publico: no requiere token)</span>
+<span>   +-------------------------------------------------------------------------------</span>
+<span style='color:#fbbf24;'>   &lt;&lt;&lt; HTTP 200 en 3 ms   application/json</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span> [16:53:05] POST http://127.0.0.1:5000/login?format=json</span>
+<span>   +-- AUTENTICACION ----------------------------------------------------------------</span>
+<span>   | Authorization: (sin token: peticion ANONIMA)</span>
+<span>   | (endpoint publico: no requiere token)</span>
+<span>   +-------------------------------------------------------------------------------</span>
+<span style='color:#fbbf24;'>   &lt;&lt;&lt; HTTP 200 en 992 ms   application/json</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span></span>
+<span>  Usuario autenticado : tk.demo.1790722383@library.local</span>
+<span>  access_token (JWT)  : eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ...</span>
+<span>  refresh_token       : AdY6-Yhv8v1GQOWnlD3E0xm5...</span>
+<span>  expira en           : 900 segundos</span>
+<span style='color:#4ade80;'>  [OK]   El login devuelve access_token</span>
+<span style='color:#4ade80;'>  [OK]   El login devuelve refresh_token</span>
+<span style='color:#4ade80;'>  [OK]   El access token es un JWT (3 segmentos)</span>
+<span style='color:#4ade80;'>  [OK]   El cliente envia Bearer, no X-Session-Token</span>
+<span style='color:#4ade80;'>  [OK]   El refresh token quedo guardado en disco</span>
+<span></span>
+<span style='color:#334155;'>====================================================================================</span>
+<span> 2. LECTURA DEL CATALOGO SIN TOKEN (endpoint publico)</span>
+<span style='color:#334155;'>====================================================================================</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span> [16:53:05] GET http://127.0.0.1:5001/books?format=json</span>
+<span>   +-- AUTENTICACION ----------------------------------------------------------------</span>
+<span>   | Authorization: (sin token: peticion ANONIMA)</span>
+<span>   | (endpoint publico: no requiere token)</span>
+<span>   +-------------------------------------------------------------------------------</span>
+<span style='color:#fbbf24;'>   &lt;&lt;&lt; HTTP 200 en 53 ms   application/json</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span></span>
+<span>  GET /books sin token -&gt; 10 libros</span>
+<span style='color:#4ade80;'>  [OK]   GET /books funciona SIN token (es publico)</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span> [16:53:05] GET http://127.0.0.1:5001/books/978-1491973042?format=json</span>
+<span>   +-- AUTENTICACION ----------------------------------------------------------------</span>
+<span>   | Authorization: (sin token: peticion ANONIMA)</span>
+<span>   | (endpoint publico: no requiere token)</span>
+<span>   +-------------------------------------------------------------------------------</span>
+<span style='color:#fbbf24;'>   &lt;&lt;&lt; HTTP 200 en 99 ms   application/json</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span style='color:#4ade80;'>  [OK]   GET /books/{isbn} funciona SIN token (es publico)</span>
+<span></span>
+<span style='color:#334155;'>====================================================================================</span>
+<span style='color:#7dd3fc;'> 3. CRUD CON Authorization: Bearer &lt;access_token&gt;</span>
+<span style='color:#334155;'>====================================================================================</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span> [16:53:05] GET http://127.0.0.1:5001/catalogs?format=json</span>
+<span>   +-- AUTENTICACION ----------------------------------------------------------------</span>
+<span style='color:#7dd3fc;'>   | Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5...BzhpWnZxMD18zsftuVKqEOKQ</span>
+<span>   | JWT library-login  sub=37  rol=Usuario  sid=32  jti=db17f73c...</span>
+<span>   | aud=library-api   expira en 14m 59s</span>
+<span>   +-------------------------------------------------------------------------------</span>
+<span style='color:#fbbf24;'>   &lt;&lt;&lt; HTTP 200 en 92 ms   application/json</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span> [16:53:05] DELETE http://127.0.0.1:5001/books/TK-JWT-613504</span>
+<span>   +-- AUTENTICACION ----------------------------------------------------------------</span>
+<span style='color:#7dd3fc;'>   | Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5...BzhpWnZxMD18zsftuVKqEOKQ</span>
+<span>   | JWT library-login  sub=37  rol=Usuario  sid=32  jti=db17f73c...</span>
+<span>   | aud=library-api   expira en 14m 59s</span>
+<span>   +-------------------------------------------------------------------------------</span>
+<span style='color:#fbbf24;'>   &lt;&lt;&lt; HTTP 404 en 95 ms   application/json</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span> [16:53:06] POST http://127.0.0.1:5001/books</span>
+<span>   +-- AUTENTICACION ----------------------------------------------------------------</span>
+<span style='color:#7dd3fc;'>   | Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5...BzhpWnZxMD18zsftuVKqEOKQ</span>
+<span>   | JWT library-login  sub=37  rol=Usuario  sid=32  jti=db17f73c...</span>
+<span>   | aud=library-api   expira en 14m 58s</span>
+<span>   +-------------------------------------------------------------------------------</span>
+<span style='color:#fbbf24;'>   &lt;&lt;&lt; HTTP 201 en 119 ms   application/json</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span style='color:#4ade80;'>  [OK]   POST /books con Bearer responde 201</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span> [16:53:06] PATCH http://127.0.0.1:5001/books/TK-JWT-613504</span>
+<span>   +-- AUTENTICACION ----------------------------------------------------------------</span>
+<span style='color:#7dd3fc;'>   | Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5...BzhpWnZxMD18zsftuVKqEOKQ</span>
+<span>   | JWT library-login  sub=37  rol=Usuario  sid=32  jti=db17f73c...</span>
+<span>   | aud=library-api   expira en 14m 58s</span>
+<span>   +-------------------------------------------------------------------------------</span>
+<span style='color:#fbbf24;'>   &lt;&lt;&lt; HTTP 200 en 214 ms   application/json</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span style='color:#4ade80;'>  [OK]   PATCH /books/{isbn} con Bearer responde 200</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span> [16:53:06] PUT http://127.0.0.1:5001/books/TK-JWT-613504</span>
+<span>   +-- AUTENTICACION ----------------------------------------------------------------</span>
+<span style='color:#7dd3fc;'>   | Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5...BzhpWnZxMD18zsftuVKqEOKQ</span>
+<span>   | JWT library-login  sub=37  rol=Usuario  sid=32  jti=db17f73c...</span>
+<span>   | aud=library-api   expira en 14m 58s</span>
+<span>   +-------------------------------------------------------------------------------</span>
+<span style='color:#fbbf24;'>   &lt;&lt;&lt; HTTP 200 en 97 ms   application/json</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span style='color:#4ade80;'>  [OK]   PUT /books/{isbn} con Bearer responde 200</span>
+<span></span>
+<span style='color:#334155;'>====================================================================================</span>
+<span> 4. REFRESCO AUTOMATICO DEL TOKEN (401 -&gt; /refresh -&gt; reintento)</span>
+<span style='color:#334155;'>====================================================================================</span>
+<span></span>
+<span>  Access token forzado a EXPIRADO: eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9...</span>
+<span>  Se ejecuta un PATCH (operacion protegida) y el cliente debe renovar solo.</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span> [16:53:06] PATCH http://127.0.0.1:5001/books/TK-JWT-613504</span>
+<span>   +-- AUTENTICACION ----------------------------------------------------------------</span>
+<span style='color:#7dd3fc;'>   | Authorization: Bearer eyJhbGciOiAiSFMyNTYiLCAi...BDTC3mm_uH_7S-ZvZaCJyqyI</span>
+<span>   | JWT library-login  sub=37  rol=Usuario  sid=32  jti=db17f73c...</span>
+<span>   | aud=library-api   expira en 0m 00s</span>
+<span>   +-------------------------------------------------------------------------------</span>
+<span style='color:#fbbf24;'>   &lt;&lt;&lt; HTTP 401 en 4 ms   application/json</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span> [16:53:06] POST http://127.0.0.1:5000/refresh?format=json</span>
+<span>   (renovacion automatica del token)</span>
+<span>   +-- AUTENTICACION ----------------------------------------------------------------</span>
+<span style='color:#7dd3fc;'>   | Authorization: Bearer eyJhbGciOiAiSFMyNTYiLCAi...BDTC3mm_uH_7S-ZvZaCJyqyI</span>
+<span>   | JWT library-login  sub=37  rol=Usuario  sid=32  jti=db17f73c...</span>
+<span>   | aud=library-api   expira en 0m 00s</span>
+<span>   +-------------------------------------------------------------------------------</span>
+<span style='color:#fbbf24;'>   &lt;&lt;&lt; HTTP 200 en 201 ms   application/json</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span> [16:53:06] PATCH http://127.0.0.1:5001/books/TK-JWT-613504</span>
+<span>   +-- AUTENTICACION ----------------------------------------------------------------</span>
+<span style='color:#7dd3fc;'>   | Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5...oEEwiEL0V7Ar2sqHmJeBfyIQ</span>
+<span>   | JWT library-login  sub=37  rol=Usuario  sid=33  jti=f95ed1b4...</span>
+<span>   | aud=library-api   expira en 14m 59s</span>
+<span>   | ^ se renovo el token con POST /refresh (rotacion)</span>
+<span>   +-------------------------------------------------------------------------------</span>
+<span style='color:#fbbf24;'>   &lt;&lt;&lt; HTTP 200 en 186 ms   application/json</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span style='color:#4ade80;'>  [OK]   El PATCH con token expirado se resolvio por refresco automatico</span>
+<span style='color:#4ade80;'>  [OK]   El cliente quedo con un access token NUEVO</span>
+<span style='color:#4ade80;'>  [OK]   El refresh token tambien roto (nuevo valor)</span>
+<span></span>
+<span style='color:#334155;'>====================================================================================</span>
+<span> 5. BORRADO PROTEGIDO Y CIERRE DE SESION</span>
+<span style='color:#334155;'>====================================================================================</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span> [16:53:06] DELETE http://127.0.0.1:5001/books/TK-JWT-613504</span>
+<span>   +-- AUTENTICACION ----------------------------------------------------------------</span>
+<span style='color:#7dd3fc;'>   | Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5...oEEwiEL0V7Ar2sqHmJeBfyIQ</span>
+<span>   | JWT library-login  sub=37  rol=Usuario  sid=33  jti=f95ed1b4...</span>
+<span>   | aud=library-api   expira en 14m 59s</span>
+<span>   +-------------------------------------------------------------------------------</span>
+<span style='color:#fbbf24;'>   &lt;&lt;&lt; HTTP 200 en 97 ms   application/json</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span style='color:#4ade80;'>  [OK]   DELETE /books/{isbn} con Bearer responde 200</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span> [16:53:07] POST http://127.0.0.1:5000/logout?format=json</span>
+<span>   +-- AUTENTICACION ----------------------------------------------------------------</span>
+<span style='color:#7dd3fc;'>   | Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5...oEEwiEL0V7Ar2sqHmJeBfyIQ</span>
+<span>   | JWT library-login  sub=37  rol=Usuario  sid=33  jti=f95ed1b4...</span>
+<span>   | aud=library-api   expira en 14m 58s</span>
+<span>   +-------------------------------------------------------------------------------</span>
+<span style='color:#fbbf24;'>   &lt;&lt;&lt; HTTP 200 en 261 ms   application/json</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------------</span>
+<span style='color:#4ade80;'>  [OK]   Tras el logout el cliente ya no tiene access token</span>
+<span style='color:#4ade80;'>  [OK]   Tras el logout el cliente ya no tiene refresh token</span>
+<span></span>
+<span style='color:#334155;'>====================================================================================</span>
+<span> RESULTADO</span>
+<span style='color:#334155;'>====================================================================================</span>
+<span> Aserciones correctas : 16</span>
+<span> Aserciones fallidas  : 0</span></pre>
+    </div>
+    </div></body></html>

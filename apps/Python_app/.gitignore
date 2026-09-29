@@ -1,0 +1,30 @@
+# ------------------------------------------------------------------------------
+# Configuracion y sesion locales del cliente
+# ------------------------------------------------------------------------------
+# runtime/ guarda config.json y session.json. El segundo puede contener el
+# correo y la contrasena recordados (ofuscados en base64), por lo que NUNCA
+# debe subirse al repositorio: el enunciado lo prohibe expresamente.
+runtime/
+config.json
+session.json
+bitacora.log
+
+# ------------------------------------------------------------------------------
+# Python
+# ------------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# ------------------------------------------------------------------------------
+# Entorno local
+# ------------------------------------------------------------------------------
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

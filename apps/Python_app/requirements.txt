@@ -1,0 +1,20 @@
+# ==============================================================================
+# Dependencias de apps/Python_app
+# ==============================================================================
+# OBLIGATORIAS: ninguna.
+#
+# La aplicacion funciona solo con la biblioteca estandar de Python 3.10+:
+#   - tkinter            -> interfaz grafica (viene con el instalador de Windows)
+#   - urllib.request     -> peticiones HTTP (GET, POST, PUT, PATCH, DELETE)
+#   - xml.etree          -> interpretacion del formato XML del microservicio de login
+#   - json               -> interpretacion del formato JSON de ambos microservicios
+#
+# OPCIONAL (recomendada): Pillow solo se usa para mostrar las portadas de los
+# libros en el catalogo. Si no esta instalada, la aplicacion arranca igual y
+# muestra un recuadro "Sin imagen" en lugar de la portada.
+#
+# Instalacion de la dependencia opcional:
+#     pip install -r requirements.txt
+# ==============================================================================
+
+Pillow>=10.0.0

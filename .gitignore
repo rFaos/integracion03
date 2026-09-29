@@ -35,8 +35,12 @@ Thumbs.db
 *.swo
 
 # Empaquetados de entrega (se suben a la plataforma del curso, no al repo)
-# apps.zip pesa ~216 MB y supera el limite de 100 MB por archivo de GitHub.
+# apps.zip y "apps (2).zip" pesan ~216-238 MB y superan el limite de 100 MB
+# por archivo de GitHub. Se regeneran cuando hacen falta.
 apps.zip
+apps (2).zip
+integracion03-login.zip
+entrega_jwt/*.zip
 *.tar.gz
 
 # Estado local de herramientas

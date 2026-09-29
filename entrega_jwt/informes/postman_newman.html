@@ -1,0 +1,246 @@
+<!DOCTYPE html><html lang='es'><head><meta charset='utf-8'><title>Coleccion Postman con Newman</title><style>
+  * { box-sizing: border-box; }
+  body { margin:0; background:#0b1120; color:#e2e8f0;
+         font-family: "Segoe UI", Inter, system-ui, sans-serif; }
+  .wrap { padding: 26px 30px 40px; }
+  h1 { font-size: 21px; margin:0 0 4px; color:#fff; }
+  .sub { color:#94a3b8; font-size:12.5px; margin-bottom:18px; }
+  .mono { font-family: Consolas, "Cascadia Mono", monospace; }
+  pre { margin:0; white-space:pre-wrap; word-break:break-word; }
+  table { border-collapse: collapse; width:100%; font-size:12px; }
+  th, td { border:1px solid #1e293b; padding:4px 8px; text-align:left;
+           vertical-align:top; font-family: Consolas, monospace; }
+  th { background:#111c30; color:#7dd3fc; font-weight:600; }
+  .ok   { color:#4ade80; font-weight:700; }
+  .bad  { color:#f87171; font-weight:700; }
+  .muted{ color:#94a3b8; }
+  .tag  { display:inline-block; padding:2px 8px; border-radius:999px;
+          font-size:11px; font-weight:700; letter-spacing:.4px; }
+</style></head><body><div class='wrap'>
+    <h1>Colección de Postman ejecutada con Newman</h1>
+    <div class="sub">
+      El runner oficial de Postman por línea de comandos, contra la instancia real.
+      Así se comprueba que la colección entregada <b>corre limpia</b> y no solo se ve
+      bonita en el editor.
+    </div>
+    <div style="background:#05080f;border:1px solid #1e293b;border-radius:10px;padding:14px 16px;">
+      <div style="color:#64748b;font-size:11px;margin-bottom:10px;">
+        &#9679; consola &mdash; npx newman run postman/Libreria_JWT_UDEM_613504.postman_collection.json
+      </div>
+      <pre class="mono" style="font-size:11.5px;line-height:1.42;"><span>newman</span>
+<span></span>
+<span>Librería en línea · JWT (UDEM SC-2236 · 613504)</span>
+<span></span>
+<span>□ 00 · La trampa: la misma ruta, dos autorizaciones distintas</span>
+<span style='color:#64748b;'>└ GET /books  (público, sin token) -&gt; 200</span>
+<span>  GET http://172.32.132.174:5001/books?format=json [200 OK, 4.04kB, 247ms]</span>
+<span style='color:#4ade80;'>  √  GET /books responde 200 SIN token (catálogo público)</span>
+<span style='color:#4ade80;'>  √  La respuesta anuncia los métodos públicos</span>
+<span style='color:#4ade80;'>  √  El catálogo trae libros</span>
+<span></span>
+<span style='color:#64748b;'>└ POST /books  (protegido, SIN token) -&gt; 401</span>
+<span>  POST http://172.32.132.174:5001/books [401 UNAUTHORIZED, 1.06kB, 9ms]</span>
+<span style='color:#4ade80;'>  √  POST /books SIN token responde 401 Unauthorized</span>
+<span style='color:#4ade80;'>  √  Trae el encabezado WWW-Authenticate: Bearer</span>
+<span style='color:#4ade80;'>  √  El código de error es TOKEN_REQUIRED</span>
+<span></span>
+<span style='color:#64748b;'>└ POST /api/book/insert  (ALIAS, SIN token) -&gt; 401</span>
+<span>  POST http://172.32.132.174:5001/api/book/insert [401 UNAUTHORIZED, 1.06kB, 8ms]</span>
+<span style='color:#4ade80;'>  √  El alias de escritura tampoco es una puerta trasera: 401</span>
+<span></span>
+<span>□ 01 · Obtener el JWT (captcha -&gt; registro -&gt; login)</span>
+<span style='color:#64748b;'>└ GET /captcha  (público)</span>
+<span>  GET http://172.32.132.174:5000/captcha?format=json [200 OK, 673B, 8ms]</span>
+<span style='color:#4ade80;'>  √  El servicio entrega un desafío CAPTCHA</span>
+<span>  ┌</span>
+<span>  │ &#x27;Desafío: ¿Cuánto es 8 - 5? -&gt; respuesta 3&#x27;</span>
+<span>  └</span>
+<span></span>
+<span style='color:#64748b;'>└ POST /register  (alta del usuario de prueba)</span>
+<span>  POST http://172.32.132.174:5000/register?format=json [409 CONFLICT, 564B, 608ms]</span>
+<span style='color:#4ade80;'>  √  Registro 201 Created (o 409 si el usuario demo ya existía)</span>
+<span></span>
+<span style='color:#64748b;'>└ GET /captcha  (nuevo desafío para el login)</span>
+<span>  GET http://172.32.132.174:5000/captcha?format=json [200 OK, 673B, 8ms]</span>
+<span>  ┌</span>
+<span>  │ &#x27;Nuevo desafío: ¿Cuánto es 9 + 5? -&gt; 14&#x27;</span>
+<span>  └</span>
+<span></span>
+<span style='color:#64748b;'>└ POST /login  -&gt; aquí nace el JWT</span>
+<span>  POST http://172.32.132.174:5000/login?format=json [200 OK, 2.48kB, 799ms]</span>
+<span style='color:#4ade80;'>  √  Login 200 OK</span>
+<span style='color:#4ade80;'>  √  Devuelve un access_token con formato JWT (3 segmentos)</span>
+<span style='color:#4ade80;'>  √  El esquema es Bearer y el algoritmo HS256</span>
+<span style='color:#4ade80;'>  √  El access token dura 15 minutos y el refresh 7 días</span>
+<span style='color:#4ade80;'>  √  El refresh_token es distinto del access_token</span>
+<span>  ┌</span>
+<span>  │ `Using &quot;CryptoJS&quot; is deprecated. Use &quot;require(&#x27;crypto-</span>
+<span>  │ js&#x27;)&quot; instead.`</span>
+<span>  │ &#x27;JWT claims: {&quot;aud&quot;:&quot;library-api&quot;,&quot;email&quot;:&quot;postman.jwt</span>
+<span>  │ .613504@udem.mx&quot;,&quot;exp&quot;:1790724162,&quot;iat&quot;:1790723262,&quot;is</span>
+<span>  │ s&quot;:&quot;library-login&quot;,&quot;jti&quot;:&quot;f510c685-4c47-46a9-962d-5eb2</span>
+<span>  │ 30128c49&quot;,&quot;name&quot;:&quot;Postman JWT&quot;,&quot;nbf&quot;:1790723262,&quot;role&quot;</span>
+<span>  │ :&quot;Usuario&quot;,&quot;sid&quot;:42,&quot;sub&quot;:&quot;41&quot;,&quot;typ&quot;:&quot;access&quot;}&#x27;</span>
+<span>  └</span>
+<span style='color:#4ade80;'>  √  Los claims del RFC 7519 están presentes</span>
+<span></span>
+<span>□ 02 · Catálogo público (sin token)</span>
+<span style='color:#64748b;'>└ GET /books  (sin token) -&gt; 200</span>
+<span>  GET http://172.32.132.174:5001/books?format=json [200 OK, 4.04kB, 111ms]</span>
+<span style='color:#4ade80;'>  √  Lectura pública del catálogo: 200</span>
+<span></span>
+<span style='color:#64748b;'>└ GET /books/{{isbn}}  (sin token) -&gt; 200</span>
+<span>  GET http://172.32.132.174:5001/books/?format=json [200 OK, 4.04kB, 140ms]</span>
+<span style='color:#4ade80;'>  √  Detalle por ISBN sin token: 200 (misma ruta que el PUT protegido)</span>
+<span></span>
+<span style='color:#7dd3fc;'>□ 03 · Escrituras protegidas (Authorization: Bearer)</span>
+<span style='color:#64748b;'>└ POST /books  (con Bearer) -&gt; 201</span>
+<span>  POST http://172.32.132.174:5001/books [201 CREATED, 450B, 233ms]</span>
+<span style='color:#4ade80;'>  √  Alta con JWT válido: 201 Created</span>
+<span>  ┌</span>
+<span>  │ &#x27;ISBN guardado en {{isbn}}: POSTMAN-JWT-613504&#x27;</span>
+<span>  └</span>
+<span></span>
+<span style='color:#64748b;'>└ PUT /books/{{isbn}}  (con Bearer) -&gt; 200</span>
+<span>  PUT http://172.32.132.174:5001/books/POSTMAN-JWT-613504 [200 OK, 385B, 102ms]</span>
+<span style='color:#4ade80;'>  √  PUT con Bearer: 200</span>
+<span></span>
+<span style='color:#64748b;'>└ PATCH /books/{{isbn}}  (con Bearer) -&gt; 200</span>
+<span>  PATCH http://172.32.132.174:5001/books/POSTMAN-JWT-613504 [200 OK, 420B, 94ms]</span>
+<span style='color:#4ade80;'>  √  PATCH parcial con Bearer: 200</span>
+<span></span>
+<span style='color:#64748b;'>└ POST /api/book/insert  (alias, con Bearer) -&gt; 201</span>
+<span>  POST http://172.32.132.174:5001/api/book/insert [201 CREATED, 460B, 124ms]</span>
+<span style='color:#4ade80;'>  √  El alias de escritura acepta el mismo JWT: 201</span>
+<span></span>
+<span style='color:#64748b;'>└ DELETE /books/{{isbn_alias}}  (alias, con Bearer) -&gt; 200</span>
+<span>  DELETE http://172.32.132.174:5001/books/POSTMAN-ALIAS-613504 [200 OK, 442B, 129ms]</span>
+<span style='color:#4ade80;'>  √  Baja por alias con Bearer: 200</span>
+<span></span>
+<span style='color:#64748b;'>└ POST /api/book/delete/{{isbn}}  (alias POST de borrado) -&gt; 200</span>
+<span>  POST http://172.32.132.174:5001/api/book/delete/POSTMAN-JWT-613504 [200 OK, 430B, 133ms]</span>
+<span style='color:#4ade80;'>  √  Un POST que borra también exige token (la protección es por método, no por ruta)</span>
+<span></span>
+<span>□ 04 · Sesión, introspección y refresh token</span>
+<span style='color:#64748b;'>└ GET /session  (con Bearer) -&gt; valida el token</span>
+<span>  GET http://172.32.132.174:5000/session?format=json [200 OK, 1.53kB, 168ms]</span>
+<span style='color:#4ade80;'>  √  El servicio de login acepta el JWT: 200</span>
+<span style='color:#4ade80;'>  √  Informa que la credencial usada es un JWT</span>
+<span></span>
+<span style='color:#64748b;'>└ POST /verify  (introspección stateless) -&gt; 200</span>
+<span>  POST http://172.32.132.174:5000/verify?format=json [200 OK, 893B, 8ms]</span>
+<span style='color:#4ade80;'>  √  El token es válido</span>
+<span></span>
+<span style='color:#64748b;'>└ POST /refresh  (rota el refresh token) -&gt; 200</span>
+<span>  POST http://172.32.132.174:5000/refresh?format=json [200 OK, 2.49kB, 233ms]</span>
+<span style='color:#4ade80;'>  √  El refresh entrega un access_token nuevo</span>
+<span style='color:#4ade80;'>  √  Y rota el refresh_token (el anterior queda quemado)</span>
+<span></span>
+<span style='color:#64748b;'>└ POST /refresh  (REUTILIZANDO el token rotado) -&gt; 401</span>
+<span>  POST http://172.32.132.174:5000/refresh?format=json [401 UNAUTHORIZED, 656B, 310ms]</span>
+<span style='color:#4ade80;'>  √  Reutilizar un refresh token ya rotado: 401</span>
+<span style='color:#4ade80;'>  √  El código lo identifica como reuso (REFRESH_REUSED)</span>
+<span></span>
+<span style='color:#64748b;'>└ POST /logout  (revoca la sesión)</span>
+<span>  POST http://172.32.132.174:5000/logout?format=json [200 OK, 841B, 161ms]</span>
+<span style='color:#4ade80;'>  √  Logout 200</span>
+<span></span>
+<span style='color:#64748b;'>└ GET /session  (con el token revocado) -&gt; 401</span>
+<span>  GET http://172.32.132.174:5000/session?format=json [401 UNAUTHORIZED, 556B, 73ms]</span>
+<span style='color:#4ade80;'>  √  Tras el logout el JWT ya no sirve: 401</span>
+<span></span>
+<span>□ 05 · Ataques contra el JWT (deben fallar)</span>
+<span style='color:#64748b;'>└ alg:none  (token sin firma) -&gt; 401</span>
+<span>  ┌</span>
+<span>  │ `Using &quot;CryptoJS&quot; is deprecated. Use &quot;require(&#x27;crypto-</span>
+<span>  │ js&#x27;)&quot; instead.`</span>
+<span>  └</span>
+<span>  POST http://172.32.132.174:5001/books [401 UNAUTHORIZED, 946B, 5ms]</span>
+<span style='color:#4ade80;'>  √  El token con alg:none se rechaza: 401</span>
+<span>  ┌</span>
+<span>  │ &#x27;Código de rechazo: ALGORITHM_NONE_REJECTED&#x27;</span>
+<span>  └</span>
+<span style='color:#4ade80;'>  √  Se identifica el ataque (ALGORITHM_NONE_REJECTED)</span>
+<span></span>
+<span style='color:#64748b;'>└ Firma con otro secreto -&gt; 401</span>
+<span>  ┌</span>
+<span>  │ `Using &quot;CryptoJS&quot; is deprecated. Use &quot;require(&#x27;crypto-</span>
+<span>  │ js&#x27;)&quot; instead.`</span>
+<span>  └</span>
+<span>  POST http://172.32.132.174:5001/books [401 UNAUTHORIZED, 872B, 6ms]</span>
+<span style='color:#4ade80;'>  √  Firma inválida: 401</span>
+<span>  ┌</span>
+<span>  │ &#x27;Código de rechazo: INVALID_SIGNATURE&#x27;</span>
+<span>  └</span>
+<span style='color:#4ade80;'>  √  Se detecta la firma manipulada (INVALID_SIGNATURE)</span>
+<span></span>
+<span style='color:#64748b;'>└ Token expirado -&gt; 401</span>
+<span>  ┌</span>
+<span>  │ `Using &quot;CryptoJS&quot; is deprecated. Use &quot;require(&#x27;crypto-</span>
+<span>  │ js&#x27;)&quot; instead.`</span>
+<span>  └</span>
+<span>  POST http://172.32.132.174:5001/books [401 UNAUTHORIZED, 944B, 7ms]</span>
+<span style='color:#4ade80;'>  √  Token expirado: 401</span>
+<span>  ┌</span>
+<span>  │ &#x27;Código de rechazo: TOKEN_EXPIRED&#x27;</span>
+<span>  └</span>
+<span style='color:#4ade80;'>  √  Se detecta la expiración (TOKEN_EXPIRED)</span>
+<span></span>
+<span style='color:#64748b;'>└ Audiencia ajena (aud != library-api) -&gt; 401</span>
+<span>  ┌</span>
+<span>  │ `Using &quot;CryptoJS&quot; is deprecated. Use &quot;require(&#x27;crypto-</span>
+<span>  │ js&#x27;)&quot; instead.`</span>
+<span>  └</span>
+<span>  POST http://172.32.132.174:5001/books [401 UNAUTHORIZED, 914B, 8ms]</span>
+<span style='color:#4ade80;'>  √  Token emitido para otra audiencia: 401</span>
+<span>  ┌</span>
+<span>  │ &#x27;Código de rechazo: INVALID_AUDIENCE&#x27;</span>
+<span>  └</span>
+<span style='color:#4ade80;'>  √  Se detecta la audiencia incorrecta (INVALID_AUDIENCE)</span>
+<span></span>
+<span style='color:#64748b;'>└ GET /books con token basura -&gt; 200 (sigue siendo público)</span>
+<span>  ┌</span>
+<span>  │ `Using &quot;CryptoJS&quot; is deprecated. Use &quot;require(&#x27;crypto-</span>
+<span>  │ js&#x27;)&quot; instead.`</span>
+<span>  └</span>
+<span>  GET http://172.32.132.174:5001/books?format=json [200 OK, 4.04kB, 86ms]</span>
+<span style='color:#4ade80;'>  √  Un token inválido NO rompe la lectura pública: 200</span>
+<span></span>
+<span>□ 06 · Salud e instancia</span>
+<span style='color:#64748b;'>└ GET /health  · login</span>
+<span>  GET http://172.32.132.174:5000/health?format=json [200 OK, 1.01kB, 146ms]</span>
+<span style='color:#4ade80;'>  √  Servicio de login operativo</span>
+<span>  ┌</span>
+<span>  │ &#x27;Huella del secreto (login): 998b858a0b50&#x27;</span>
+<span>  └</span>
+<span style='color:#4ade80;'>  √  Reporta el bloque JWT</span>
+<span></span>
+<span style='color:#64748b;'>└ GET /health  · libros</span>
+<span>  GET http://172.32.132.174:5001/health [200 OK, 624B, 74ms]</span>
+<span style='color:#4ade80;'>  √  Servicio de libros operativo</span>
+<span>  ┌</span>
+<span>  │ &#x27;Huella del secreto (libros): 998b858a0b50&#x27;</span>
+<span>  └</span>
+<span style='color:#4ade80;'>  √  Declara los métodos públicos y la misma huella de secreto</span>
+<span></span>
+<span style='color:#64748b;'>┌─────────────────────────┬────────────────────┬───────────────────┐</span>
+<span style='color:#64748b;'>│                         │           executed │            failed │</span>
+<span style='color:#64748b;'>├─────────────────────────┼────────────────────┼───────────────────┤</span>
+<span style='color:#64748b;'>│              iterations │                  1 │                 0 │</span>
+<span style='color:#64748b;'>├─────────────────────────┼────────────────────┼───────────────────┤</span>
+<span style='color:#64748b;'>│                requests │                 28 │                 0 │</span>
+<span style='color:#64748b;'>├─────────────────────────┼────────────────────┼───────────────────┤</span>
+<span style='color:#64748b;'>│            test-scripts │                 28 │                 0 │</span>
+<span style='color:#64748b;'>├─────────────────────────┼────────────────────┼───────────────────┤</span>
+<span style='color:#64748b;'>│      prerequest-scripts │                  5 │                 0 │</span>
+<span style='color:#64748b;'>├─────────────────────────┼────────────────────┼───────────────────┤</span>
+<span style='color:#64748b;'>│              assertions │                 45 │                 0 │</span>
+<span style='color:#64748b;'>├─────────────────────────┴────────────────────┴───────────────────┤</span>
+<span style='color:#64748b;'>│ total run duration: 6.5s                                         │</span>
+<span style='color:#64748b;'>├──────────────────────────────────────────────────────────────────┤</span>
+<span style='color:#64748b;'>│ total data received: 28.88kB (approx)                            │</span>
+<span style='color:#64748b;'>├──────────────────────────────────────────────────────────────────┤</span>
+<span style='color:#64748b;'>│ average response time: 144ms [min: 5ms, max: 799ms, s.d.: 177ms] │</span>
+<span style='color:#64748b;'>└──────────────────────────────────────────────────────────────────┘</span></pre>
+    </div>
+    </div></body></html>

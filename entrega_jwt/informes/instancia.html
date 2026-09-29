@@ -1,0 +1,102 @@
+<!DOCTYPE html><html lang='es'><head><meta charset='utf-8'><title>Instancia en ejecucion</title><style>
+  * { box-sizing: border-box; }
+  body { margin:0; background:#0b1120; color:#e2e8f0;
+         font-family: "Segoe UI", Inter, system-ui, sans-serif; }
+  .wrap { padding: 26px 30px 40px; }
+  h1 { font-size: 21px; margin:0 0 4px; color:#fff; }
+  .sub { color:#94a3b8; font-size:12.5px; margin-bottom:18px; }
+  .mono { font-family: Consolas, "Cascadia Mono", monospace; }
+  pre { margin:0; white-space:pre-wrap; word-break:break-word; }
+  table { border-collapse: collapse; width:100%; font-size:12px; }
+  th, td { border:1px solid #1e293b; padding:4px 8px; text-align:left;
+           vertical-align:top; font-family: Consolas, monospace; }
+  th { background:#111c30; color:#7dd3fc; font-weight:600; }
+  .ok   { color:#4ade80; font-weight:700; }
+  .bad  { color:#f87171; font-weight:700; }
+  .muted{ color:#94a3b8; }
+  .tag  { display:inline-block; padding:2px 8px; border-radius:999px;
+          font-size:11px; font-weight:700; letter-spacing:.4px; }
+</style></head><body><div class='wrap'>
+    <h1>Instancia en ejecución</h1>
+    <div class="sub">Los dos microservicios levantados en el equipo, con PostgreSQL 17 en la misma máquina.</div>
+
+    <table style="margin-bottom:16px;">
+      <tr><th style="width:230px;">Equipo</th><td>Faos</td></tr>
+      <tr><th>Dirección IPv4 (LAN)</th><td class="mono">172.32.132.174</td></tr>
+      <tr><th>Microservicio de autenticación</th><td class="mono">http://172.32.132.174:5000 &nbsp; (también http://127.0.0.1:5000)</td></tr>
+      <tr><th>Microservicio de libros</th><td class="mono">http://172.32.132.174:5001 &nbsp; (también http://127.0.0.1:5001)</td></tr>
+      <tr><th>Base de datos</th><td class="mono">PostgreSQL 17.4 · library @ 127.0.0.1:5432</td></tr>
+      <tr><th>Documentación</th><td class="mono">/docs en ambos servicios</td></tr>
+    </table>
+
+    
+        <div style="border:1px solid #1e293b;border-radius:10px;background:#0e1729;margin-bottom:14px;overflow:hidden;">
+          <div style="padding:9px 12px;background:#111c30;border-bottom:1px solid #1e293b;">
+            <b style="color:#7dd3fc;">login-microservice · GET /health?format=json</b>
+            <span class="mono muted" style="font-size:12px;margin-left:8px;">http://127.0.0.1:5000/health?format=json</span>
+          </div>
+          <pre class="mono" style="padding:10px 12px;font-size:11.5px;">{
+  &quot;status&quot;: &quot;success&quot;,
+  &quot;message&quot;: &quot;Servicio operativo.&quot;,
+  &quot;data&quot;: {
+    &quot;service&quot;: &quot;login-microservice&quot;,
+    &quot;version&quot;: &quot;1.1.0&quot;,
+    &quot;database&quot;: &quot;connected&quot;,
+    &quot;postgres_version&quot;: &quot;PostgreSQL 17.4&quot;,
+    &quot;schema&quot;: &quot;ready&quot;,
+    &quot;server_time&quot;: &quot;2026-09-29T17:12:06.767008-06:00&quot;,
+    &quot;uptime_seconds&quot;: 0.25,
+    &quot;jwt&quot;: {
+      &quot;enabled&quot;: true,
+      &quot;algorithm&quot;: &quot;HS256&quot;,
+      &quot;issuer&quot;: &quot;library-login&quot;,
+      &quot;audience&quot;: &quot;library-api&quot;,
+      &quot;access_ttl_minutes&quot;: 15,
+      &quot;refresh_ttl_days&quot;: 7,
+      &quot;session_check&quot;: true,
+      &quot;secret_fingerprint&quot;: &quot;998b858a0b50&quot;
+    }
+  },
+  &quot;_links&quot;: {
+    &quot;self&quot;: {
+      &quot;href&quot;: &quot;/health&quot;,
+      &quot;method&quot;: &quot;GET&quot;
+    },
+    &quot;docs&quot;: {
+      &quot;href&quot;: &quot;/docs&quot;,
+      &quot;method&quot;: &quot;GET&quot;
+    },
+    &quot;captcha&quot;: {
+      &quot;href&quot;: &quot;/captcha&quot;,
+      &quot;method&quot;: &quot;GET&quot;
+    }
+  }
+}</pre>
+        </div>
+    
+        <div style="border:1px solid #1e293b;border-radius:10px;background:#0e1729;margin-bottom:14px;overflow:hidden;">
+          <div style="padding:9px 12px;background:#111c30;border-bottom:1px solid #1e293b;">
+            <b style="color:#7dd3fc;">Academic Library RESTful Microservice · GET /health</b>
+            <span class="mono muted" style="font-size:12px;margin-left:8px;">http://127.0.0.1:5001/health</span>
+          </div>
+          <pre class="mono" style="padding:10px 12px;font-size:11.5px;">{
+  &quot;database&quot;: &quot;connected&quot;,
+  &quot;db_response&quot;: 1,
+  &quot;jwt&quot;: {
+    &quot;algorithm&quot;: &quot;HS256&quot;,
+    &quot;audience&quot;: &quot;library-api&quot;,
+    &quot;enabled&quot;: true,
+    &quot;issuer&quot;: &quot;library-login&quot;,
+    &quot;login_service&quot;: &quot;http://localhost:5000&quot;,
+    &quot;public_methods&quot;: [
+      &quot;GET&quot;,
+      &quot;HEAD&quot;,
+      &quot;OPTIONS&quot;
+    ],
+    &quot;secret_fingerprint&quot;: &quot;998b858a0b50&quot;
+  },
+  &quot;status&quot;: &quot;healthy&quot;,
+  &quot;timestamp&quot;: &quot;2026-09-29T23:12:06.914686&quot;
+}</pre>
+        </div>
+    </div></body></html>

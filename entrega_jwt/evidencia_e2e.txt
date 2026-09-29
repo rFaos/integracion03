@@ -1,0 +1,1800 @@
+
+==============================================================================
+ EVIDENCIA E2E - AUTORIZACION POR JWT EN LOS MICROSERVICIOS DE LA LIBRERIA
+==============================================================================
+ Fecha de la corrida : 2026-09-29 17:10:19
+ Host / instancia    : 172.32.132.174  (equipo: Faos)
+ Servicio de login   : http://localhost:5000
+ Servicio de libros  : http://localhost:5001
+ Secreto compartido  : 998b858a0b50
+
+==============================================================================
+ 1 y 2. REGLA CLAVE: LA MISMA RUTA, DOS AUTORIZACIONES DISTINTAS
+==============================================================================
+
+------------------------------------------------------------------------------
+  GET /books SIN token -> PUBLICO. Es la misma ruta que el POST protegido: por eso la proteccion se decide por METODO HTTP, no por ruta.
+------------------------------------------------------------------------------
+  >>> PETICION
+  GET /books?format=json HTTP/1.1
+  Accept: application/json
+
+  <<< RESPUESTA  HTTP 200
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:10:22 GMT
+  Content-Type: application/json
+  Content-Length: 3722
+  X-Auth-Scheme: JWT HS256
+  X-Public-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Origin: *
+  Access-Control-Expose-Headers: WWW-Authenticate
+  Connection: close
+  {
+    "books": [
+      {
+        "authors": "Martin Kleppmann",
+        "category_name": "Sistemas Distribuidos",
+        "cover_image": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400",
+        "format_name": "Físico Tapa Dura",
+        "genres": "Manual Técnico de Referencia, Patrones y Mejores Prácticas",
+        "id": 1,
+        "isbn": "978-1491973042",
+        "price": 45.0,
+        "publication_year": 2017,
+        "stock": 15,
+        "title": "Designing Data-Intensive Applications"
+      },
+      {
+        "authors": "Robert C. Martin",
+        "category_name": "Arquitectura de Software",
+        "cover_image": "https://images.unsplash.com/photo-1532012164546-f432f2e3777a?w=400",
+        "format_name": "Físico Tapa Blanda",
+        "genres": "Patrones y Mejores Prácticas",
+        "id": 2,
+        "isbn": "978-0134494166",
+        "price": 39.99,
+        "publication_year": 2017,
+        "stock": 20,
+        "title": "Clean Architecture: A Craftsman Guide"
+      },
+      {
+        "authors": "Sam Newman",
+        "category_name": "Arquitectura de Software",
+        "cover_image": "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400",
+        "format_name": "Físico Tapa Dura",
+        "genres": "Manual Técnico de Referencia, Patrones y Mejores Prácticas",
+        "id": 3,
+        "isbn": "978-1491950357",
+        "price": 49.5,
+        "publication_year": 2021,
+        "stock": 12,
+        "title": "Building Microservices: Designing Fine-Grained Systems"
+      },
+      {
+        "authors": "Robert C. Martin",
+        "category_name": "Arquitectura de Software",
+        "cover_image": "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=400",
+        "format_name": "Físico Tapa Blanda",
+        "genres": "Patrones y Mejores Prácticas",
+        "id": 4,
+        "isbn": "978-0132350884",
+        "price": 42.0,
+        "publication_year": 2008,
+        "stock": 25,
+        "title": "Clean Code: A Handbook of Agile Software"
+      },
+      {
+        "authors": "Eric Evans",
+        "category_name": "Arquitectura de Software",
+        "cover_image": "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=400",
+        "format_name": "Físico Tapa Dura",
+        "genres": "Patrones y Mejores Prácticas",
+        "id": 5,
+        "isbn": "978-0321125217",
+        "price": 55.0,
+        "publication_year": 2003,
+        "stock": 10,
+        "title": "Domain-Driven Design: Tackling Complexity"
+      },
+      {
+        "authors": "Kelsey Hightower",
+        "category_name": "Cloud Computing",
+        "cover_image": "https://images.unsplash.com/photo-1667372393119-3d4c48d07fc9?w=400",
+        "format_name": "Digital PDF",
+        "genres": "Guía Práctica Paso a Paso",
+        "id": 6,
+        "isbn": "978-1492043782",
+        "price": 38.0,
+        "publication_year": 2022,
+        "stock": 18,
+        "title": "Kubernetes: Up and Running"
+      },
+      {
+        "authors": "Sam Newman",
+        "category_name": "Cloud Computing",
+        "cover_image": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=400",
+        "format_name": "Digital EPUB",
+        "genres": "Patrones y Mejores Prácticas",
+        "id": 7,
+        "isbn": "978-1492056010",
+        "price": 44.0,
+        "publication_year": 2019,
+        "stock": 16,
+        "title": "Cloud Native Patterns: Designing Change-Tolerant Software"
+      },
+      {
+        "authors": "Gene Kim",
+        "category_name": "DevOps y SRE",
+        "cover_image": "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=400",
+        "format_name": "Edición de Bolsillo",
+        "genres": "Casos de Estudio Empresariales",
+        "id": 8,
+        "isbn": "978-1950538478",
+        "price": 28.0,
+        "publication_year": 2018,
+        "stock": 28,
+        "title": "The Phoenix Project: A Novel about IT and DevOps"
+      },
+      {
+        "authors": "Andrew S. Tanenbaum",
+        "category_name": "Redes y Comunicaciones",
+        "cover_image": "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400",
+        "format_name": "Físico Tapa Dura",
+        "genres": "Libro de Texto Universitario",
+        "id": 9,
+        "isbn": "978-0133492606",
+        "price": 85.0,
+        "publication_year": 2010,
+        "stock": 4,
+        "title": "Computer Networks (5th Edition)"
+      },
+      {
+        "authors": "Andrew S. Tanenbaum",
+        "category_name": "Redes y Comunicaciones",
+        "cover_image": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400",
+        "format_name": "Físico Tapa Dura",
+        "genres": "Libro de Texto Universitario",
+        "id": 10,
+        "isbn": "978-0134092669",
+        "price": 78.0,
+        "publication_year": 2015,
+        "stock": 0,
+        "title": "Operating Systems: Design and Implementation"
+      }
+    ],
+    "count": 10
+  }
+  [OK]   GET /books sin token responde 200 (publico)
+
+------------------------------------------------------------------------------
+  POST /books SIN token -> PROTEGIDO. Debe responder 401 con WWW-Authenticate.
+------------------------------------------------------------------------------
+  >>> PETICION
+  POST /books HTTP/1.1
+  Content-Type: application/json
+  Content-Length: 133
+  Accept: application/json
+  {
+    "isbn": "PRUEBA-JWT-613504",
+    "title": "Intento sin token",
+    "publication_year": 2026,
+    "price": 1.0,
+    "format_id": 1,
+    "category_id": 1
+  }
+
+  <<< RESPUESTA  HTTP 401
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:10:24 GMT
+  Content-Type: application/json
+  Content-Length: 522
+  WWW-Authenticate: Bearer realm="library-books", error="TOKEN_REQUIRED", error_description="Esta operación modifica el catálogo y requiere autenticación. Falta el encabezado 'Authorization: Bearer <access_token>'."
+  X-Auth-Scheme: JWT HS256
+  X-Public-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Origin: *
+  Access-Control-Expose-Headers: WWW-Authenticate
+  Connection: close
+  {
+    "_links": {
+      "captcha": {
+        "href": "http://localhost:5000/captcha",
+        "method": "GET"
+      },
+      "login": {
+        "href": "http://localhost:5000/login",
+        "method": "POST"
+      },
+      "public_catalog": {
+        "href": "/books",
+        "method": "GET"
+      },
+      "refresh": {
+        "href": "http://localhost:5000/refresh",
+        "method": "POST"
+      }
+    },
+    "code": "TOKEN_REQUIRED",
+    "error": "Esta operación modifica el catálogo y requiere autenticación. Falta el encabezado 'Authorization: Bearer <access_token>'.",
+    "hint": "Envía el encabezado 'Authorization: Bearer <access_token>'.",
+    "status_code": 401
+  }
+  [OK]   POST /books sin token responde 401
+  [OK]   Codigo TOKEN_REQUIRED
+  [OK]   Cabecera WWW-Authenticate presente
+  [OK]   El error incluye _links hacia el servicio de login
+
+------------------------------------------------------------------------------
+  POST /books?format=xml SIN token -> el 401 tambien se negocia a XML.
+------------------------------------------------------------------------------
+  >>> PETICION
+  POST /books?format=xml HTTP/1.1
+  Content-Type: application/json
+  Content-Length: 133
+  Accept: application/json
+  {
+    "isbn": "PRUEBA-JWT-613504",
+    "title": "Intento sin token",
+    "publication_year": 2026,
+    "price": 1.0,
+    "format_id": 1,
+    "category_id": 1
+  }
+
+  <<< RESPUESTA  HTTP 401
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:10:26 GMT
+  Content-Type: application/xml; charset=utf-8
+  Content-Length: 786
+  WWW-Authenticate: Bearer realm="library-books", error="TOKEN_REQUIRED", error_description="Esta operación modifica el catálogo y requiere autenticación. Falta el encabezado 'Authorization: Bearer <access_token>'."
+  X-Auth-Scheme: JWT HS256
+  X-Public-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Origin: *
+  Access-Control-Expose-Headers: WWW-Authenticate
+  Connection: close
+  <?xml version='1.0' encoding='utf-8'?>
+  <error>
+    <message>Esta operación modifica el catálogo y requiere autenticación. Falta el encabezado 'Authorization: Bearer &lt;access_token&gt;'.</message>
+    <error>Esta operación modifica el catálogo y requiere autenticación. Falta el encabezado 'Authorization: Bearer &lt;access_token&gt;'.</error>
+    <code>TOKEN_REQUIRED</code>
+    <status_code>401</status_code>
+    <hint>Envía el encabezado 'Authorization: Bearer &lt;access_token&gt;'.</hint>
+    <_links>{'login': {'href': 'http://localhost:5000/login', 'method': 'POST'}, 'refresh': {'href': 'http://localhost:5000/refresh', 'method': 'POST'}, 'captcha': {'href': 'http://localhost:5000/captcha', 'method': 'GET'}, 'public_catalog': {'href': '/books', 'method': 'GET'}}</_links>
+  </error>
+  [OK]   El 401 sin token tambien responde en XML
+
+==============================================================================
+ 3. OBTENCION DEL TOKEN: CAPTCHA -> REGISTRO -> LOGIN
+==============================================================================
+
+------------------------------------------------------------------------------
+  GET /captcha (publico)
+------------------------------------------------------------------------------
+  >>> PETICION
+  GET /captcha?format=json HTTP/1.1
+  Accept: application/json
+
+  <<< RESPUESTA  HTTP 200
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:10:28 GMT
+  Content-Type: application/json
+  Content-Length: 474
+  Access-Control-Allow-Origin: *
+  Connection: close
+  {
+    "status": "success",
+    "message": "Resuelve el desafío y envíalo junto con captcha_id.",
+    "data": {
+      "captcha_id": "eyJhIjo5LCJiIjozLCJleHAiOjE3OTA3MjM3MjgsIm4iOiJkNDM0OWI4NTg0Mjk0YjZlIiwib3AiOiItIn0=.3308a77043961e1941c6aa5701f58f70",
+      "question": "¿Cuánto es 9 - 3?",
+      "expires_in": 300
+    },
+    "_links": {
+      "login": {
+        "href": "/login",
+        "method": "POST"
+      },
+      "register": {
+        "href": "/register",
+        "method": "POST"
+      }
+    }
+  }
+
+  Desafio resuelto: '¿Cuánto es 9 - 3?' -> respuesta 6
+  [OK]   El servicio entrega un desafio CAPTCHA
+
+------------------------------------------------------------------------------
+  POST /register (usuario de prueba para la corrida)
+------------------------------------------------------------------------------
+  >>> PETICION
+  POST /register?format=json HTTP/1.1
+  Content-Type: application/json
+  Content-Length: 311
+  Accept: application/json
+  {
+    "nombre": "Prueba",
+    "apellido_paterno": "JWT",
+    "apellido_materno": "Integracion",
+    "email": "jwt.demo.1790723419@library.local",
+    "password": "S3gura!2026",
+    "captcha_id": "eyJhIjo5LCJiIjozLCJleHAiOjE3OTA3MjM3MjgsIm4iOiJkNDM0OWI4NTg0Mjk0YjZlIiwib3AiOiItIn0=.3308a77043961e1941c6aa5701f58f70",
+    "captcha_answer": 6
+  }
+
+  <<< RESPUESTA  HTTP 201
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:10:31 GMT
+  Content-Type: application/json
+  Content-Length: 531
+  Location: /users/46
+  Access-Control-Allow-Origin: *
+  Connection: close
+  {
+    "status": "success",
+    "message": "Usuario registrado correctamente.",
+    "data": {
+      "user": {
+        "id": 46,
+        "nombre": "Prueba",
+        "apellido_paterno": "JWT",
+        "apellido_materno": "Integracion",
+        "email": "jwt.demo.1790723419@library.local",
+        "role": "Usuario"
+      }
+    },
+    "_links": {
+      "login": {
+        "href": "/login",
+        "method": "POST"
+      },
+      "user": {
+        "href": "/users/46",
+        "method": "GET"
+      },
+      "self": {
+        "href": "/users/46",
+        "method": "GET"
+      }
+    }
+  }
+  [OK]   Registro 201
+
+------------------------------------------------------------------------------
+  GET /captcha (nuevo desafio para el login)
+------------------------------------------------------------------------------
+  >>> PETICION
+  GET /captcha?format=json HTTP/1.1
+  Accept: application/json
+
+  <<< RESPUESTA  HTTP 200
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:10:33 GMT
+  Content-Type: application/json
+  Content-Length: 474
+  Access-Control-Allow-Origin: *
+  Connection: close
+  {
+    "status": "success",
+    "message": "Resuelve el desafío y envíalo junto con captcha_id.",
+    "data": {
+      "captcha_id": "eyJhIjo1LCJiIjo2LCJleHAiOjE3OTA3MjM3MzMsIm4iOiI1MDNlMjEwMzllNzY0OTc4Iiwib3AiOiIrIn0=.3faffe8f54fdce034896789a4b7fe889",
+      "question": "¿Cuánto es 5 + 6?",
+      "expires_in": 300
+    },
+    "_links": {
+      "login": {
+        "href": "/login",
+        "method": "POST"
+      },
+      "register": {
+        "href": "/register",
+        "method": "POST"
+      }
+    }
+  }
+
+------------------------------------------------------------------------------
+  POST /login -> aqui nace el JWT (access_token) y el refresh_token
+------------------------------------------------------------------------------
+  >>> PETICION
+  POST /login?format=json HTTP/1.1
+  Content-Type: application/json
+  Content-Length: 230
+  Accept: application/json
+  {
+    "email": "jwt.demo.1790723419@library.local",
+    "password": "S3gura!2026",
+    "captcha_id": "eyJhIjo1LCJiIjo2LCJleHAiOjE3OTA3MjM3MzMsIm4iOiI1MDNlMjEwMzllNzY0OTc4Iiwib3AiOiIrIn0=.3faffe8f54fdce034896789a4b7fe889",
+    "captcha_answer": 11
+  }
+
+  <<< RESPUESTA  HTTP 200
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:10:36 GMT
+  Content-Type: application/json
+  Content-Length: 2312
+  Access-Control-Allow-Origin: *
+  Connection: close
+  {
+    "status": "success",
+    "message": "Autenticación exitosa. Usa 'Authorization: Bearer <access_token>'.",
+    "data": {
+      "user": {
+        "id": 46,
+        "nombre": "Prueba",
+        "apellido_paterno": "JWT",
+        "apellido_materno": "Integracion",
+        "email": "jwt.demo.1790723419@library.local",
+        "role": "Usuario"
+      },
+      "session": {
+        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJsaWJyYXJ5LWFwaSIsImVtYWlsIjoiand0LmRlbW8uMTc5MDcyMzQxOUBsaWJyYXJ5LmxvY2FsIiwiZXhwIjoxNzkwNzI0MzM1LCJpYXQiOjE3OTA3MjM0MzUsImlzcyI6ImxpYnJhcnktbG9naW4iLCJqdGkiOiI1MWVkNzQ1MS00ZmE0LTQzMzgtODUyMi03ZGRmOTU1ZWRkNjAiLCJuYW1lIjoiUHJ1ZWJhIEpXVCIsIm5iZiI6MTc5MDcyMzQzNSwicm9sZSI6IlVzdWFyaW8iLCJzaWQiOjQ1LCJzdWIiOiI0NiIsInR5cCI6ImFjY2VzcyJ9.Qv9SEUSXwuC8LIcNwNzyjCzTpf9BDTp8q4hfJ550chc",
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJsaWJyYXJ5LWFwaSIsImVtYWlsIjoiand0LmRlbW8uMTc5MDcyMzQxOUBsaWJyYXJ5LmxvY2FsIiwiZXhwIjoxNzkwNzI0MzM1LCJpYXQiOjE3OTA3MjM0MzUsImlzcyI6ImxpYnJhcnktbG9naW4iLCJqdGkiOiI1MWVkNzQ1MS00ZmE0LTQzMzgtODUyMi03ZGRmOTU1ZWRkNjAiLCJuYW1lIjoiUHJ1ZWJhIEpXVCIsIm5iZiI6MTc5MDcyMzQzNSwicm9sZSI6IlVzdWFyaW8iLCJzaWQiOjQ1LCJzdWIiOiI0NiIsInR5cCI6ImFjY2VzcyJ9.Qv9SEUSXwuC8LIcNwNzyjCzTpf9BDTp8q4hfJ550chc",
+        "token_type": "Bearer",
+        "header": "Authorization",
+        "algorithm": "HS256",
+        "expires_in": 900,
+        "expires_at": "2026-09-29T23:25:35.992270+00:00",
+        "refresh_token": "iUlFSktQdu52ZXXuYMxAbtE5OOCEqCcEqT6J9IBEy9EPYc50BsQGu0iG6h4m6AGY",
+        "refresh_expires_in": 604800,
+        "refresh_expires_at": "2026-10-06T17:10:35.942161-06:00",
+        "refresh_endpoint": "/refresh",
+        "issuer": "library-login",
+        "audience": "library-api"
+      }
+    },
+    "_links": {
+      "self": {
+        "href": "/session",
+        "method": "GET"
+      },
+      "logout": {
+        "href": "/logout",
+        "method": "POST"
+      },
+      "user": {
+        "href": "/users/46",
+        "method": "GET"
+      },
+      "captcha": {
+        "href": "/captcha",
+        "method": "GET"
+      },
+      "profile": {
+        "href": "/profile",
+        "method": "PATCH"
+      },
+      "extend": {
+        "href": "/session/extend",
+        "method": "POST"
+      },
+      "refresh": {
+        "href": "/refresh",
+        "method": "POST"
+      },
+      "verify": {
+        "href": "/verify",
+        "method": "POST"
+      }
+    }
+  }
+  [OK]   Login 200
+  [OK]   Devuelve access_token JWT (3 segmentos)
+  [OK]   Devuelve refresh_token
+  [OK]   token_type = Bearer
+  [OK]   expires_in = 900 s
+
+==============================================================================
+ 4. INSPECCION DEL JWT EMITIDO (header / payload / firma)
+==============================================================================
+
+  HEADER   : {"alg": "HS256", "typ": "JWT"}
+  PAYLOAD  : {"aud": "library-api", "email": "jwt.demo.1790723419@library.local", "exp": 1790724335, "iat": 1790723435, "iss": "library-login", "jti": "51ed7451-4fa4-4338-8522-7ddf955edd60", "name": "Prueba JWT", "nbf": 1790723435, "role": "Usuario", "sid": 45, "sub": "46", "typ": "access"}
+  FIRMA    : Qv9SEUSXwuC8LIcNwNzyjCzTpf9BDTp8...  (43 caracteres base64url)
+  LONGITUD : 421 caracteres
+  [OK]   Header declara HS256
+  [OK]   Payload trae sub/sid/jti/iss/aud/exp
+  [OK]   iss = library-login
+  [OK]   aud = library-api
+  [OK]   Vigencia del access token = 15 min
+
+==============================================================================
+ 5. ESCRITURA CON TOKEN: POST /books
+==============================================================================
+
+------------------------------------------------------------------------------
+  GET /catalogs (publico: ids reales para el alta)
+------------------------------------------------------------------------------
+  >>> PETICION
+  GET /catalogs HTTP/1.1
+  Accept: application/json
+
+  <<< RESPUESTA  HTTP 200
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:10:42 GMT
+  Content-Type: application/json
+  Content-Length: 1720
+  X-Auth-Scheme: JWT HS256
+  X-Public-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Origin: *
+  Access-Control-Expose-Headers: WWW-Authenticate
+  Connection: close
+  {
+    "authors": [
+      {
+        "id": 2,
+        "name": "Andrew S. Tanenbaum"
+      },
+      {
+        "id": 6,
+        "name": "Brendan Gregg"
+      },
+      {
+        "id": 3,
+        "name": "Donald E. Knuth"
+      },
+      {
+        "id": 4,
+        "name": "Eric Evans"
+      },
+      {
+        "id": 10,
+        "name": "Gene Kim"
+      },
+      {
+        "id": 9,
+        "name": "Gregor Hohpe"
+      },
+      {
+        "id": 11,
+        "name": "Kelsey Hightower"
+      },
+      {
+        "id": 1,
+        "name": "Martin Fowler"
+      },
+      {
+        "id": 12,
+        "name": "Martin Kleppmann"
+      },
+      {
+        "id": 7,
+        "name": "Michael T. Nygard"
+      },
+      {
+        "id": 5,
+        "name": "Robert C. Martin"
+      },
+      {
+        "id": 8,
+        "name": "Sam Newman"
+      }
+    ],
+    "categories": [
+      {
+        "id": 8,
+        "name": "Arquitectura de Software"
+      },
+      {
+        "id": 4,
+        "name": "Bases de Datos"
+      },
+      {
+        "id": 1,
+        "name": "Cloud Computing"
+      },
+      {
+        "id": 9,
+        "name": "Desarrollo Web Fullstack"
+      },
+      {
+        "id": 7,
+        "name": "DevOps y SRE"
+      },
+      {
+        "id": 10,
+        "name": "Ingeniería de Datos"
+      },
+      {
+        "id": 3,
+        "name": "Inteligencia Artificial"
+      },
+      {
+        "id": 6,
+        "name": "Redes y Comunicaciones"
+      },
+      {
+        "id": 5,
+        "name": "Seguridad Informática"
+      },
+      {
+        "id": 2,
+        "name": "Sistemas Distribuidos"
+      }
+    ],
+    "formats": [
+      {
+        "id": 7,
+        "name": "Audiolibro M4B"
+      },
+      {
+        "id": 6,
+        "name": "Audiolibro MP3"
+      },
+      {
+        "id": 4,
+        "name": "Digital EPUB"
+      },
+      {
+        "id": 5,
+        "name": "Digital MOBI"
+      },
+      {
+        "id": 3,
+        "name": "Digital PDF"
+      },
+      {
+        "id": 9,
+        "name": "Edición de Bolsillo"
+      },
+      {
+        "id": 8,
+        "name": "Espiral / Wire-O"
+      },
+      {
+        "id": 10,
+        "name": "Fascículo Técnico"
+      },
+      {
+        "id": 2,
+        "name": "Físico Tapa Blanda"
+      },
+      {
+        "id": 1,
+        "name": "Físico Tapa Dura"
+      }
+    ],
+    "genres": [
+      {
+        "id": 7,
+        "name": "Casos de Estudio Empresariales"
+      },
+      {
+        "id": 8,
+        "name": "Cookbook de Código y Recetas"
+      },
+      {
+        "id": 6,
+        "name": "Ensayo de Filosofía Tecnológica"
+      },
+      {
+        "id": 4,
+        "name": "Guía Práctica Paso a Paso"
+      },
+      {
+        "id": 10,
+        "name": "Historia de la Computación"
+      },
+      {
+        "id": 2,
+        "name": "Libro de Texto Universitario"
+      },
+      {
+        "id": 1,
+        "name": "Manual Técnico de Referencia"
+      },
+      {
+        "id": 3,
+        "name": "Monografía Especializada"
+      },
+      {
+        "id": 5,
+        "name": "Patrones y Mejores Prácticas"
+      },
+      {
+        "id": 9,
+        "name": "Tratado Teórico Formal"
+      }
+    ]
+  }
+
+------------------------------------------------------------------------------
+  POST /books CON Authorization: Bearer <JWT> -> 201
+------------------------------------------------------------------------------
+  >>> PETICION
+  POST /books HTTP/1.1
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...f9BDTp8q4hfJ550chc
+  Content-Type: application/json
+  Content-Length: 185
+  Accept: application/json
+  {
+    "isbn": "PRUEBA-JWT-613504",
+    "title": "PRUEBA JWT - 613504",
+    "publication_year": 2026,
+    "price": 499.0,
+    "stock": 7,
+    "format_id": 7,
+    "category_id": 8,
+    "author_ids": [
+      2
+    ],
+    "genre_ids": []
+  }
+
+  <<< RESPUESTA  HTTP 201
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:10:44 GMT
+  Content-Type: application/json
+  Content-Length: 114
+  X-Auth-Scheme: JWT HS256
+  X-Public-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Origin: *
+  Access-Control-Expose-Headers: WWW-Authenticate
+  Connection: close
+  {
+    "book_id": 48,
+    "isbn": "PRUEBA-JWT-613504",
+    "message": "Libro registrado exitosamente",
+    "title": "PRUEBA JWT - 613504"
+  }
+  [OK]   POST /books con token responde 201
+
+------------------------------------------------------------------------------
+  GET /books/{isbn} SIN token -> PUBLICO (misma ruta que el PUT protegido)
+------------------------------------------------------------------------------
+  >>> PETICION
+  GET /books/PRUEBA-JWT-613504?format=json HTTP/1.1
+  Accept: application/json
+
+  <<< RESPUESTA  HTTP 200
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:10:46 GMT
+  Content-Type: application/json
+  Content-Length: 474
+  X-Auth-Scheme: JWT HS256
+  X-Public-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Origin: *
+  Access-Control-Expose-Headers: WWW-Authenticate
+  Connection: close
+  {
+    "authors": [
+      {
+        "biography": "Profesor emérito y creador de MINIX, autor clásico en redes y SO",
+        "country": "Países Bajos",
+        "id": 2,
+        "name": "Andrew S. Tanenbaum"
+      }
+    ],
+    "category_id": 8,
+    "category_name": "Arquitectura de Software",
+    "concepts": [],
+    "created_at": "2026-09-29T17:10:44.523722-06:00",
+    "format_id": 7,
+    "format_name": "Audiolibro M4B",
+    "genres": [],
+    "id": 48,
+    "images": [],
+    "isbn": "PRUEBA-JWT-613504",
+    "price": 499.0,
+    "publication_year": 2026,
+    "stock": 7,
+    "title": "PRUEBA JWT - 613504"
+  }
+  [OK]   GET /books/{isbn} sin token responde 200
+
+------------------------------------------------------------------------------
+  PUT /books/{isbn} CON token -> 200 (reemplazo completo)
+------------------------------------------------------------------------------
+  >>> PETICION
+  PUT /books/PRUEBA-JWT-613504 HTTP/1.1
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...f9BDTp8q4hfJ550chc
+  Content-Type: application/json
+  Content-Length: 171
+  Accept: application/json
+  {
+    "title": "PRUEBA JWT - 613504 (PUT completo)",
+    "publication_year": 2026,
+    "price": 599.0,
+    "stock": 9,
+    "format_id": 7,
+    "category_id": 8,
+    "author_ids": [
+      2
+    ],
+    "genre_ids": []
+  }
+
+  <<< RESPUESTA  HTTP 200
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:10:48 GMT
+  Content-Type: application/json
+  Content-Length: 73
+  X-Auth-Scheme: JWT HS256
+  X-Public-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Origin: *
+  Access-Control-Expose-Headers: WWW-Authenticate
+  Connection: close
+  {
+    "isbn": "PRUEBA-JWT-613504",
+    "message": "Libro actualizado correctamente"
+  }
+  [OK]   PUT con token responde 200
+
+------------------------------------------------------------------------------
+  PATCH /books/{isbn} CON token -> 200 (modificacion parcial)
+------------------------------------------------------------------------------
+  >>> PETICION
+  PATCH /books/PRUEBA-JWT-613504 HTTP/1.1
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...f9BDTp8q4hfJ550chc
+  Content-Type: application/json
+  Content-Length: 29
+  Accept: application/json
+  {
+    "price": 650.0,
+    "stock": 11
+  }
+
+  <<< RESPUESTA  HTTP 200
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:10:50 GMT
+  Content-Type: application/json
+  Content-Length: 107
+  X-Auth-Scheme: JWT HS256
+  X-Public-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Origin: *
+  Access-Control-Expose-Headers: WWW-Authenticate
+  Connection: close
+  {
+    "isbn": "PRUEBA-JWT-613504",
+    "message": "Libro modificado parcialmente",
+    "modified_fields": [
+      "price",
+      "stock"
+    ]
+  }
+  [OK]   PATCH con token responde 200
+
+------------------------------------------------------------------------------
+  POST /api/book/insert CON token -> 201: el ALIAS de escritura tambien queda cubierto
+------------------------------------------------------------------------------
+  >>> PETICION
+  POST /api/book/insert HTTP/1.1
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...f9BDTp8q4hfJ550chc
+  Content-Type: application/json
+  Content-Length: 167
+  Accept: application/json
+  {
+    "isbn": "PRUEBA-ALIAS-613504",
+    "title": "PRUEBA JWT - ALIAS /api/book/insert",
+    "publication_year": 2026,
+    "price": 199.0,
+    "stock": 3,
+    "format_id": 7,
+    "category_id": 8
+  }
+
+  <<< RESPUESTA  HTTP 201
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:10:53 GMT
+  Content-Type: application/json
+  Content-Length: 132
+  X-Auth-Scheme: JWT HS256
+  X-Public-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Origin: *
+  Access-Control-Expose-Headers: WWW-Authenticate
+  Connection: close
+  {
+    "book_id": 49,
+    "isbn": "PRUEBA-ALIAS-613504",
+    "message": "Libro registrado exitosamente",
+    "title": "PRUEBA JWT - ALIAS /api/book/insert"
+  }
+  [OK]   El alias /api/book/insert exige y acepta token
+
+------------------------------------------------------------------------------
+  POST /api/book/insert SIN token -> 401 (no hay puerta trasera por el alias)
+------------------------------------------------------------------------------
+  >>> PETICION
+  POST /api/book/insert HTTP/1.1
+  Content-Type: application/json
+  Content-Length: 126
+  Accept: application/json
+  {
+    "isbn": "PRUEBA-JWT-ALIAS-SIN-TOKEN",
+    "title": "x",
+    "publication_year": 2026,
+    "price": 1.0,
+    "format_id": 7,
+    "category_id": 8
+  }
+
+  <<< RESPUESTA  HTTP 401
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:10:55 GMT
+  Content-Type: application/json
+  Content-Length: 522
+  WWW-Authenticate: Bearer realm="library-books", error="TOKEN_REQUIRED", error_description="Esta operación modifica el catálogo y requiere autenticación. Falta el encabezado 'Authorization: Bearer <access_token>'."
+  X-Auth-Scheme: JWT HS256
+  X-Public-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Origin: *
+  Access-Control-Expose-Headers: WWW-Authenticate
+  Connection: close
+  {
+    "_links": {
+      "captcha": {
+        "href": "http://localhost:5000/captcha",
+        "method": "GET"
+      },
+      "login": {
+        "href": "http://localhost:5000/login",
+        "method": "POST"
+      },
+      "public_catalog": {
+        "href": "/books",
+        "method": "GET"
+      },
+      "refresh": {
+        "href": "http://localhost:5000/refresh",
+        "method": "POST"
+      }
+    },
+    "code": "TOKEN_REQUIRED",
+    "error": "Esta operación modifica el catálogo y requiere autenticación. Falta el encabezado 'Authorization: Bearer <access_token>'.",
+    "hint": "Envía el encabezado 'Authorization: Bearer <access_token>'.",
+    "status_code": 401
+  }
+  [OK]   El alias de escritura sin token responde 401
+
+==============================================================================
+ 6. SESION Y REFRESCO
+==============================================================================
+
+------------------------------------------------------------------------------
+  GET /session CON Bearer -> el servicio de login valida el JWT
+------------------------------------------------------------------------------
+  >>> PETICION
+  GET /session?format=json HTTP/1.1
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...f9BDTp8q4hfJ550chc
+  Accept: application/json
+
+  <<< RESPUESTA  HTTP 200
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:10:57 GMT
+  Content-Type: application/json
+  Content-Length: 1346
+  Access-Control-Allow-Origin: *
+  Connection: close
+  {
+    "status": "success",
+    "message": "Sesión activa.",
+    "data": {
+      "authenticated": true,
+      "user": {
+        "id": 46,
+        "nombre": "Prueba",
+        "apellido_paterno": "JWT",
+        "apellido_materno": "Integracion",
+        "email": "jwt.demo.1790723419@library.local",
+        "role": "Usuario"
+      },
+      "session": {
+        "credential": "jwt",
+        "expires_at": "2026-10-06T17:10:35.942161-06:00",
+        "remaining_seconds": 604778,
+        "duration_minutes": 30
+      },
+      "jwt": {
+        "sub": "46",
+        "sid": 45,
+        "jti": "51ed7451-4fa4-4338-8522-7ddf955edd60",
+        "iss": "library-login",
+        "aud": "library-api",
+        "role": "Usuario",
+        "exp": "2026-09-29T23:25:35+00:00",
+        "remaining_seconds": 877
+      }
+    },
+    "_links": {
+      "self": {
+        "href": "/session",
+        "method": "GET"
+      },
+      "logout": {
+        "href": "/logout",
+        "method": "POST"
+      },
+      "user": {
+        "href": "/users/46",
+        "method": "GET"
+      },
+      "captcha": {
+        "href": "/captcha",
+        "method": "GET"
+      },
+      "profile": {
+        "href": "/profile",
+        "method": "PATCH"
+      },
+      "extend": {
+        "href": "/session/extend",
+        "method": "POST"
+      },
+      "refresh": {
+        "href": "/refresh",
+        "method": "POST"
+      },
+      "verify": {
+        "href": "/verify",
+        "method": "POST"
+      }
+    }
+  }
+  [OK]   GET /session con Bearer responde 200
+  [OK]   credential = jwt
+
+------------------------------------------------------------------------------
+  POST /verify -> introspeccion sin estado del token
+------------------------------------------------------------------------------
+  >>> PETICION
+  POST /verify?format=json HTTP/1.1
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...f9BDTp8q4hfJ550chc
+  Accept: application/json
+
+  <<< RESPUESTA  HTTP 200
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:10:59 GMT
+  Content-Type: application/json
+  Content-Length: 700
+  Access-Control-Allow-Origin: *
+  Connection: close
+  {
+    "status": "success",
+    "message": "Token válido.",
+    "data": {
+      "valid": true,
+      "claims": {
+        "aud": "library-api",
+        "email": "jwt.demo.1790723419@library.local",
+        "exp": 1790724335,
+        "iat": 1790723435,
+        "iss": "library-login",
+        "jti": "51ed7451-4fa4-4338-8522-7ddf955edd60",
+        "name": "Prueba JWT",
+        "nbf": 1790723435,
+        "role": "Usuario",
+        "sid": 45,
+        "sub": "46",
+        "typ": "access"
+      },
+      "expires_at": "2026-09-29T23:25:35+00:00",
+      "remaining_seconds": 875
+    },
+    "_links": {
+      "login": {
+        "href": "/login",
+        "method": "POST"
+      },
+      "refresh": {
+        "href": "/refresh",
+        "method": "POST"
+      }
+    }
+  }
+  [OK]   POST /verify responde valid=true
+
+------------------------------------------------------------------------------
+  POST /refresh -> rota el refresh token y emite un JWT nuevo
+------------------------------------------------------------------------------
+  >>> PETICION
+  POST /refresh?format=json HTTP/1.1
+  Content-Type: application/json
+  Content-Length: 85
+  Accept: application/json
+  {
+    "refresh_token": "iUlFSktQdu52ZXXuYMxAbtE5OOCEqCcEqT6J9IBEy9EPYc50BsQGu0iG6h4m6AGY"
+  }
+
+  <<< RESPUESTA  HTTP 200
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:11:01 GMT
+  Content-Type: application/json
+  Content-Length: 2317
+  Access-Control-Allow-Origin: *
+  Connection: close
+  {
+    "status": "success",
+    "message": "Tokens renovados. El refresh token anterior quedó revocado (rotación).",
+    "data": {
+      "user": {
+        "id": 45,
+        "nombre": "Prueba",
+        "apellido_paterno": "JWT",
+        "apellido_materno": "Integracion",
+        "email": "jwt.demo.1790723419@library.local",
+        "role": "Usuario"
+      },
+      "session": {
+        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJsaWJyYXJ5LWFwaSIsImVtYWlsIjoiand0LmRlbW8uMTc5MDcyMzQxOUBsaWJyYXJ5LmxvY2FsIiwiZXhwIjoxNzkwNzI0MzYxLCJpYXQiOjE3OTA3MjM0NjEsImlzcyI6ImxpYnJhcnktbG9naW4iLCJqdGkiOiJlNWMyZjM5Yi0yY2M5LTQ1NWEtYjZkNy1kZWU2OTgzOWY2MDciLCJuYW1lIjoiUHJ1ZWJhIEpXVCIsIm5iZiI6MTc5MDcyMzQ2MSwicm9sZSI6IlVzdWFyaW8iLCJzaWQiOjQ2LCJzdWIiOiI0NiIsInR5cCI6ImFjY2VzcyJ9.D-j8QKjtVrAkrW788fZ9niMGXeqQSsZTcjp85vVvphw",
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJsaWJyYXJ5LWFwaSIsImVtYWlsIjoiand0LmRlbW8uMTc5MDcyMzQxOUBsaWJyYXJ5LmxvY2FsIiwiZXhwIjoxNzkwNzI0MzYxLCJpYXQiOjE3OTA3MjM0NjEsImlzcyI6ImxpYnJhcnktbG9naW4iLCJqdGkiOiJlNWMyZjM5Yi0yY2M5LTQ1NWEtYjZkNy1kZWU2OTgzOWY2MDciLCJuYW1lIjoiUHJ1ZWJhIEpXVCIsIm5iZiI6MTc5MDcyMzQ2MSwicm9sZSI6IlVzdWFyaW8iLCJzaWQiOjQ2LCJzdWIiOiI0NiIsInR5cCI6ImFjY2VzcyJ9.D-j8QKjtVrAkrW788fZ9niMGXeqQSsZTcjp85vVvphw",
+        "token_type": "Bearer",
+        "header": "Authorization",
+        "algorithm": "HS256",
+        "expires_in": 900,
+        "expires_at": "2026-09-29T23:26:01.674328+00:00",
+        "refresh_token": "vQCxG2tLtjKrFY2JVFHaVRknMlJBjhW3yhLCO3f-mPxzz_cVFmDuki_zTtZNpFKr",
+        "refresh_expires_in": 604800,
+        "refresh_expires_at": "2026-10-06T17:11:01.573407-06:00",
+        "refresh_endpoint": "/refresh",
+        "issuer": "library-login",
+        "audience": "library-api"
+      }
+    },
+    "_links": {
+      "self": {
+        "href": "/session",
+        "method": "GET"
+      },
+      "logout": {
+        "href": "/logout",
+        "method": "POST"
+      },
+      "user": {
+        "href": "/users/46",
+        "method": "GET"
+      },
+      "captcha": {
+        "href": "/captcha",
+        "method": "GET"
+      },
+      "profile": {
+        "href": "/profile",
+        "method": "PATCH"
+      },
+      "extend": {
+        "href": "/session/extend",
+        "method": "POST"
+      },
+      "refresh": {
+        "href": "/refresh",
+        "method": "POST"
+      },
+      "verify": {
+        "href": "/verify",
+        "method": "POST"
+      }
+    }
+  }
+  [OK]   POST /refresh responde 200
+  [OK]   Emite un access_token distinto
+  [OK]   Rota el refresh_token
+
+------------------------------------------------------------------------------
+  POST /refresh REUTILIZANDO el token ya rotado -> deteccion de reuso
+------------------------------------------------------------------------------
+  >>> PETICION
+  POST /refresh?format=json HTTP/1.1
+  Content-Type: application/json
+  Content-Length: 85
+  Accept: application/json
+  {
+    "refresh_token": "iUlFSktQdu52ZXXuYMxAbtE5OOCEqCcEqT6J9IBEy9EPYc50BsQGu0iG6h4m6AGY"
+  }
+
+  <<< RESPUESTA  HTTP 401
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:11:03 GMT
+  Content-Type: application/json
+  Content-Length: 447
+  Access-Control-Allow-Origin: *
+  Connection: close
+  {
+    "status": "error",
+    "error": {
+      "code": "REFRESH_REUSED",
+      "message": "El refresh token ya había sido usado. Por seguridad se revocaron todas las sesiones de la cuenta: vuelve a iniciar sesión."
+    },
+    "_links": {
+      "login": {
+        "href": "/login",
+        "method": "POST"
+      },
+      "register": {
+        "href": "/register",
+        "method": "POST"
+      },
+      "captcha": {
+        "href": "/captcha",
+        "method": "GET"
+      }
+    }
+  }
+  [OK]   Reuso del refresh token -> 401 REFRESH_REUSED
+
+==============================================================================
+ 7. ATAQUES CONTRA EL JWT (el servicio de libros los rechaza)
+==============================================================================
+
+------------------------------------------------------------------------------
+  POST /books con token alg=none (sin firma) -> debe rechazarse
+------------------------------------------------------------------------------
+  >>> PETICION
+  POST /books HTTP/1.1
+  Authorization: Bearer eyJhbGciOiJub25lIiwidHlwIjoiSldUI  ...[JWT truncado para el log]...5cCI6ImFjY2VzcyJ9.
+  Content-Type: application/json
+  Content-Length: 111
+  Accept: application/json
+  {
+    "isbn": "ATAQUE-NONE",
+    "title": "x",
+    "publication_year": 2026,
+    "price": 1.0,
+    "format_id": 7,
+    "category_id": 8
+  }
+
+  <<< RESPUESTA  HTTP 401
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:11:06 GMT
+  Content-Type: application/json
+  Content-Length: 458
+  WWW-Authenticate: Bearer realm="library-books", error="ALGORITHM_NONE_REJECTED", error_description="El token declara alg=none (sin firma): se rechaza por politica."
+  X-Auth-Scheme: JWT HS256
+  X-Public-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Origin: *
+  Access-Control-Expose-Headers: WWW-Authenticate
+  Connection: close
+  {
+    "_links": {
+      "captcha": {
+        "href": "http://localhost:5000/captcha",
+        "method": "GET"
+      },
+      "login": {
+        "href": "http://localhost:5000/login",
+        "method": "POST"
+      },
+      "public_catalog": {
+        "href": "/books",
+        "method": "GET"
+      },
+      "refresh": {
+        "href": "http://localhost:5000/refresh",
+        "method": "POST"
+      }
+    },
+    "code": "ALGORITHM_NONE_REJECTED",
+    "error": "El token declara alg=none (sin firma): se rechaza por politica.",
+    "hint": "Envía el encabezado 'Authorization: Bearer <access_token>'.",
+    "status_code": 401
+  }
+  [OK]   alg=none rechazado (ALGORITHM_NONE_REJECTED)
+
+------------------------------------------------------------------------------
+  POST /books con token firmado con OTRO secreto -> firma invalida
+------------------------------------------------------------------------------
+  >>> PETICION
+  POST /books HTTP/1.1
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]..._dmJI26Wra1nZZGK-8
+  Content-Type: application/json
+  Content-Length: 112
+  Accept: application/json
+  {
+    "isbn": "ATAQUE-FIRMA",
+    "title": "x",
+    "publication_year": 2026,
+    "price": 1.0,
+    "format_id": 7,
+    "category_id": 8
+  }
+
+  <<< RESPUESTA  HTTP 401
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:11:08 GMT
+  Content-Type: application/json
+  Content-Length: 421
+  WWW-Authenticate: Bearer realm="library-books", error="INVALID_SIGNATURE", error_description="La firma del token no es valida."
+  X-Auth-Scheme: JWT HS256
+  X-Public-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Origin: *
+  Access-Control-Expose-Headers: WWW-Authenticate
+  Connection: close
+  {
+    "_links": {
+      "captcha": {
+        "href": "http://localhost:5000/captcha",
+        "method": "GET"
+      },
+      "login": {
+        "href": "http://localhost:5000/login",
+        "method": "POST"
+      },
+      "public_catalog": {
+        "href": "/books",
+        "method": "GET"
+      },
+      "refresh": {
+        "href": "http://localhost:5000/refresh",
+        "method": "POST"
+      }
+    },
+    "code": "INVALID_SIGNATURE",
+    "error": "La firma del token no es valida.",
+    "hint": "Envía el encabezado 'Authorization: Bearer <access_token>'.",
+    "status_code": 401
+  }
+  [OK]   Firma ajena rechazada (INVALID_SIGNATURE)
+
+------------------------------------------------------------------------------
+  POST /books con token EXPIRADO (firmado correctamente) -> debe rechazarse
+------------------------------------------------------------------------------
+  >>> PETICION
+  POST /books HTTP/1.1
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...05xyy9Z1TBPwHX9BC0
+  Content-Type: application/json
+  Content-Length: 110
+  Accept: application/json
+  {
+    "isbn": "ATAQUE-EXP",
+    "title": "x",
+    "publication_year": 2026,
+    "price": 1.0,
+    "format_id": 7,
+    "category_id": 8
+  }
+
+  <<< RESPUESTA  HTTP 401
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:11:10 GMT
+  Content-Type: application/json
+  Content-Length: 457
+  WWW-Authenticate: Bearer realm="library-books", error="TOKEN_EXPIRED", error_description="El access token expiro. Renueva con POST /refresh del servicio de login."
+  X-Auth-Scheme: JWT HS256
+  X-Public-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Origin: *
+  Access-Control-Expose-Headers: WWW-Authenticate
+  Connection: close
+  {
+    "_links": {
+      "captcha": {
+        "href": "http://localhost:5000/captcha",
+        "method": "GET"
+      },
+      "login": {
+        "href": "http://localhost:5000/login",
+        "method": "POST"
+      },
+      "public_catalog": {
+        "href": "/books",
+        "method": "GET"
+      },
+      "refresh": {
+        "href": "http://localhost:5000/refresh",
+        "method": "POST"
+      }
+    },
+    "code": "TOKEN_EXPIRED",
+    "error": "El access token expiro. Renueva con POST /refresh del servicio de login.",
+    "hint": "Envía el encabezado 'Authorization: Bearer <access_token>'.",
+    "status_code": 401
+  }
+  [OK]   Token expirado rechazado (TOKEN_EXPIRED)
+
+------------------------------------------------------------------------------
+  POST /books con token de OTRA audiencia -> debe rechazarse
+------------------------------------------------------------------------------
+  >>> PETICION
+  POST /books HTTP/1.1
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...lVFK-6V2TJBExepW5g
+  Content-Type: application/json
+  Content-Length: 110
+  Accept: application/json
+  {
+    "isbn": "ATAQUE-AUD",
+    "title": "x",
+    "publication_year": 2026,
+    "price": 1.0,
+    "format_id": 7,
+    "category_id": 8
+  }
+
+  <<< RESPUESTA  HTTP 401
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:11:12 GMT
+  Content-Type: application/json
+  Content-Length: 442
+  WWW-Authenticate: Bearer realm="library-books", error="INVALID_AUDIENCE", error_description="El token no esta dirigido a esta API (aud inesperado)."
+  X-Auth-Scheme: JWT HS256
+  X-Public-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Origin: *
+  Access-Control-Expose-Headers: WWW-Authenticate
+  Connection: close
+  {
+    "_links": {
+      "captcha": {
+        "href": "http://localhost:5000/captcha",
+        "method": "GET"
+      },
+      "login": {
+        "href": "http://localhost:5000/login",
+        "method": "POST"
+      },
+      "public_catalog": {
+        "href": "/books",
+        "method": "GET"
+      },
+      "refresh": {
+        "href": "http://localhost:5000/refresh",
+        "method": "POST"
+      }
+    },
+    "code": "INVALID_AUDIENCE",
+    "error": "El token no esta dirigido a esta API (aud inesperado).",
+    "hint": "Envía el encabezado 'Authorization: Bearer <access_token>'.",
+    "status_code": 401
+  }
+  [OK]   Audiencia ajena rechazada (INVALID_AUDIENCE)
+
+------------------------------------------------------------------------------
+  GET /books con token basura -> sigue siendo PUBLICO y responde 200 (el token no se exige para leer)
+------------------------------------------------------------------------------
+  >>> PETICION
+  GET /books?format=json HTTP/1.1
+  Authorization: Bearer basura.invalida.token
+  Accept: application/json
+
+  <<< RESPUESTA  HTTP 200
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:11:14 GMT
+  Content-Type: application/json
+  Content-Length: 4386
+  X-Auth-Scheme: JWT HS256
+  X-Public-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Origin: *
+  Access-Control-Expose-Headers: WWW-Authenticate
+  Connection: close
+  {
+    "books": [
+      {
+        "authors": "Martin Kleppmann",
+        "category_name": "Sistemas Distribuidos",
+        "cover_image": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400",
+        "format_name": "Físico Tapa Dura",
+        "genres": "Manual Técnico de Referencia, Patrones y Mejores Prácticas",
+        "id": 1,
+        "isbn": "978-1491973042",
+        "price": 45.0,
+        "publication_year": 2017,
+        "stock": 15,
+        "title": "Designing Data-Intensive Applications"
+      },
+      {
+        "authors": "Robert C. Martin",
+        "category_name": "Arquitectura de Software",
+        "cover_image": "https://images.unsplash.com/photo-1532012164546-f432f2e3777a?w=400",
+        "format_name": "Físico Tapa Blanda",
+        "genres": "Patrones y Mejores Prácticas",
+        "id": 2,
+        "isbn": "978-0134494166",
+        "price": 39.99,
+        "publication_year": 2017,
+        "stock": 20,
+        "title": "Clean Architecture: A Craftsman Guide"
+      },
+      {
+        "authors": "Sam Newman",
+        "category_name": "Arquitectura de Software",
+        "cover_image": "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400",
+        "format_name": "Físico Tapa Dura",
+        "genres": "Manual Técnico de Referencia, Patrones y Mejores Prácticas",
+        "id": 3,
+        "isbn": "978-1491950357",
+        "price": 49.5,
+        "publication_year": 2021,
+        "stock": 12,
+        "title": "Building Microservices: Designing Fine-Grained Systems"
+      },
+      {
+        "authors": "Robert C. Martin",
+        "category_name": "Arquitectura de Software",
+        "cover_image": "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=400",
+        "format_name": "Físico Tapa Blanda",
+        "genres": "Patrones y Mejores Prácticas",
+        "id": 4,
+        "isbn": "978-0132350884",
+        "price": 42.0,
+        "publication_year": 2008,
+        "stock": 25,
+        "title": "Clean Code: A Handbook of Agile Software"
+      },
+      {
+        "authors": "Eric Evans",
+        "category_name": "Arquitectura de Software",
+        "cover_image": "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=400",
+        "format_name": "Físico Tapa Dura",
+        "genres": "Patrones y Mejores Prácticas",
+        "id": 5,
+        "isbn": "978-0321125217",
+        "price": 55.0,
+        "publication_year": 2003,
+        "stock": 10,
+        "title": "Domain-Driven Design: Tackling Complexity"
+      },
+      {
+        "authors": "Kelsey Hightower",
+        "category_name": "Cloud Computing",
+        "cover_image": "https://images.unsplash.com/photo-1667372393119-3d4c48d07fc9?w=400",
+        "format_name": "Digital PDF",
+        "genres": "Guía Práctica Paso a Paso",
+        "id": 6,
+        "isbn": "978-1492043782",
+        "price": 38.0,
+        "publication_year": 2022,
+        "stock": 18,
+        "title": "Kubernetes: Up and Running"
+      },
+      {
+        "authors": "Sam Newman",
+        "category_name": "Cloud Computing",
+        "cover_image": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=400",
+        "format_name": "Digital EPUB",
+        "genres": "Patrones y Mejores Prácticas",
+        "id": 7,
+        "isbn": "978-1492056010",
+        "price": 44.0,
+        "publication_year": 2019,
+        "stock": 16,
+        "title": "Cloud Native Patterns: Designing Change-Tolerant Software"
+      },
+      {
+        "authors": "Gene Kim",
+        "category_name": "DevOps y SRE",
+        "cover_image": "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=400",
+        "format_name": "Edición de Bolsillo",
+        "genres": "Casos de Estudio Empresariales",
+        "id": 8,
+        "isbn": "978-1950538478",
+        "price": 28.0,
+        "publication_year": 2018,
+        "stock": 28,
+        "title": "The Phoenix Project: A Novel about IT and DevOps"
+      },
+      {
+        "authors": "Andrew S. Tanenbaum",
+        "category_name": "Redes y Comunicaciones",
+        "cover_image": "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400",
+        "format_name": "Físico Tapa Dura",
+        "genres": "Libro de Texto Universitario",
+        "id": 9,
+        "isbn": "978-0133492606",
+        "price": 85.0,
+        "publication_year": 2010,
+        "stock": 4,
+        "title": "Computer Networks (5th Edition)"
+      },
+      {
+        "authors": "Andrew S. Tanenbaum",
+        "category_name": "Redes y Comunicaciones",
+        "cover_image": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400",
+        "format_name": "Físico Tapa Dura",
+        "genres": "Libro de Texto Universitario",
+        "id": 10,
+        "isbn": "978-0134092669",
+        "price": 78.0,
+        "publication_year": 2015,
+        "stock": 0,
+        "title": "Operating Systems: Design and Implementation"
+      },
+      {
+        "authors": "Andrew S. Tanenbaum",
+        "category_name": "Arquitectura de Software",
+        "cover_image": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400",
+        "format_name": "Audiolibro M4B",
+        "genres": "General",
+        "id": 48,
+        "isbn": "PRUEBA-JWT-613504",
+        "price": 650.0,
+        "publication_year": 2026,
+        "stock": 11,
+        "title": "PRUEBA JWT - 613504 (PUT completo)"
+      },
+      {
+        "authors": "Sin autor",
+        "category_name": "Arquitectura de Software",
+        "cover_image": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400",
+        "format_name": "Audiolibro M4B",
+        "genres": "General",
+        "id": 49,
+        "isbn": "PRUEBA-ALIAS-613504",
+        "price": 199.0,
+        "publication_year": 2026,
+        "stock": 3,
+        "title": "PRUEBA JWT - ALIAS /api/book/insert"
+      }
+    ],
+    "count": 12
+  }
+  [OK]   La lectura publica no depende del token
+
+==============================================================================
+ 8. LIMPIEZA Y CIERRE DE SESION
+==============================================================================
+
+------------------------------------------------------------------------------
+  DELETE /books/{isbn} CON token -> 200 (limpieza del alias)
+------------------------------------------------------------------------------
+  >>> PETICION
+  DELETE /books/PRUEBA-ALIAS-613504 HTTP/1.1
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...f9BDTp8q4hfJ550chc
+  Accept: application/json
+
+  <<< RESPUESTA  HTTP 200
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:11:16 GMT
+  Content-Type: application/json
+  Content-Length: 119
+  X-Auth-Scheme: JWT HS256
+  X-Public-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Origin: *
+  Access-Control-Expose-Headers: WWW-Authenticate
+  Connection: close
+  {
+    "isbn": "PRUEBA-ALIAS-613504",
+    "message": "Libro eliminado correctamente",
+    "title": "PRUEBA JWT - ALIAS /api/book/insert"
+  }
+  [OK]   DELETE con token responde 200
+
+------------------------------------------------------------------------------
+  DELETE /books/{isbn} CON token -> 200
+------------------------------------------------------------------------------
+  >>> PETICION
+  DELETE /books/PRUEBA-JWT-613504 HTTP/1.1
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...f9BDTp8q4hfJ550chc
+  Accept: application/json
+
+  <<< RESPUESTA  HTTP 200
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:11:18 GMT
+  Content-Type: application/json
+  Content-Length: 116
+  X-Auth-Scheme: JWT HS256
+  X-Public-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Origin: *
+  Access-Control-Expose-Headers: WWW-Authenticate
+  Connection: close
+  {
+    "isbn": "PRUEBA-JWT-613504",
+    "message": "Libro eliminado correctamente",
+    "title": "PRUEBA JWT - 613504 (PUT completo)"
+  }
+  [OK]   DELETE del libro principal responde 200
+
+------------------------------------------------------------------------------
+  DELETE /books/{isbn} SIN token -> 401
+------------------------------------------------------------------------------
+  >>> PETICION
+  DELETE /books/PRUEBA-JWT-613504 HTTP/1.1
+  Accept: application/json
+
+  <<< RESPUESTA  HTTP 401
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:11:20 GMT
+  Content-Type: application/json
+  Content-Length: 522
+  WWW-Authenticate: Bearer realm="library-books", error="TOKEN_REQUIRED", error_description="Esta operación modifica el catálogo y requiere autenticación. Falta el encabezado 'Authorization: Bearer <access_token>'."
+  X-Auth-Scheme: JWT HS256
+  X-Public-Methods: GET, HEAD, OPTIONS
+  Access-Control-Allow-Origin: *
+  Access-Control-Expose-Headers: WWW-Authenticate
+  Connection: close
+  {
+    "_links": {
+      "captcha": {
+        "href": "http://localhost:5000/captcha",
+        "method": "GET"
+      },
+      "login": {
+        "href": "http://localhost:5000/login",
+        "method": "POST"
+      },
+      "public_catalog": {
+        "href": "/books",
+        "method": "GET"
+      },
+      "refresh": {
+        "href": "http://localhost:5000/refresh",
+        "method": "POST"
+      }
+    },
+    "code": "TOKEN_REQUIRED",
+    "error": "Esta operación modifica el catálogo y requiere autenticación. Falta el encabezado 'Authorization: Bearer <access_token>'.",
+    "hint": "Envía el encabezado 'Authorization: Bearer <access_token>'.",
+    "status_code": 401
+  }
+  [OK]   DELETE sin token responde 401
+
+------------------------------------------------------------------------------
+  POST /logout -> revoca la sesion del JWT
+------------------------------------------------------------------------------
+  >>> PETICION
+  POST /logout?format=json HTTP/1.1
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...f9BDTp8q4hfJ550chc
+  Accept: application/json
+
+  <<< RESPUESTA  HTTP 200
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:11:22 GMT
+  Content-Type: application/json
+  Content-Length: 642
+  Access-Control-Allow-Origin: *
+  Connection: close
+  {
+    "status": "success",
+    "message": "Sesión cerrada correctamente.",
+    "data": {
+      "revoked": true,
+      "sessions_revoked": 0,
+      "note": "El access token es un JWT sin estado: este servicio lo rechaza de inmediato (revocación en user_sessions), mientras que el servicio de libros lo aceptará como máximo hasta su expiración natural (JWT_ACCESS_MINUTES). Es el precio de no compartir estado."
+    },
+    "_links": {
+      "login": {
+        "href": "/login",
+        "method": "POST"
+      },
+      "register": {
+        "href": "/register",
+        "method": "POST"
+      },
+      "captcha": {
+        "href": "/captcha",
+        "method": "GET"
+      }
+    }
+  }
+  [OK]   Logout 200
+
+------------------------------------------------------------------------------
+  GET /session con el token ya revocado -> 401
+------------------------------------------------------------------------------
+  >>> PETICION
+  GET /session?format=json HTTP/1.1
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...f9BDTp8q4hfJ550chc
+  Accept: application/json
+
+  <<< RESPUESTA  HTTP 401
+  Server: Werkzeug/3.1.8 Python/3.13.14
+  Date: Tue, 29 Sep 2026 23:11:25 GMT
+  Content-Type: application/json
+  Content-Length: 347
+  Access-Control-Allow-Origin: *
+  Connection: close
+  {
+    "status": "error",
+    "error": {
+      "code": "SESSION_INVALID",
+      "message": "La sesión fue cerrada."
+    },
+    "_links": {
+      "login": {
+        "href": "/login",
+        "method": "POST"
+      },
+      "register": {
+        "href": "/register",
+        "method": "POST"
+      },
+      "captcha": {
+        "href": "/captcha",
+        "method": "GET"
+      }
+    }
+  }
+  [OK]   Tras el logout el token es rechazado por el servicio de login
+
+==============================================================================
+ RESULTADO
+==============================================================================
+ Aserciones correctas : 41
+ Aserciones fallidas  : 0
+
+ Intercambios HTTP registrados: 28

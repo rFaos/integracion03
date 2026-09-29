@@ -41,12 +41,17 @@
   <section class="config-bar">
     <div class="config-group">
       <label for="inputBaseUrl">🌐 URL Microservicio:</label>
-      <input type="text" id="inputBaseUrl" class="config-input" value="http://34.51.8.146:5001" placeholder="http://34.51.8.146:5001">
+      <input type="text" id="inputBaseUrl" class="config-input" value="http://127.0.0.1:5001" placeholder="http://127.0.0.1:5001">
     </div>
 
     <div class="config-group">
       <label for="inputEndpoint">📍 EndPoint:</label>
       <input type="text" id="inputEndpoint" class="config-input" value="/books" placeholder="/books">
+    </div>
+
+    <div class="config-group" style="flex: 1.4;">
+      <label for="inputToken">🔐 JWT (opcional):</label>
+      <input type="text" id="inputToken" class="config-input" value="" placeholder="Solo si vas a escribir: el catálogo (GET) es público">
     </div>
 
     <div style="display: flex; gap: 0.5rem;">

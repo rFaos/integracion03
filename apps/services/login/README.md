@@ -8,6 +8,87 @@ Microservicio independiente en **Python / Flask / Psycopg 3 / PostgreSQL** que r
 
 ---
 
+## 0. Emisor de JWT (v1.1.0)
+
+Este microservicio es el **emisor** de los JWT (RFC 7519) que protegen las
+escrituras del microservicio de libros. Implementa la emisión y la verificación
+**a mano con la biblioteca estándar** (`hmac`, `hashlib`, `base64`, `json`) — sin
+dependencias nuevas — en `jwt_utils.py`.
+
+### Modelo de credenciales
+
+| | `access_token` | `refresh_token` |
+|---|---|---|
+| Formato | **JWT** firmado HS256 | **Opaco** (`secrets.token_urlsafe(48)`) |
+| Vida | **15 minutos** | **7 días** |
+| Se guarda en el servidor | **No** (stateless) | Sí, **solo su SHA-256** en `user_sessions` |
+| Uso | Autorizar cada petición | Pedir un access token nuevo |
+| Si lo roban | Caduca solo en ≤ 15 min | Se detecta el reuso y se revocan **todas** las sesiones |
+
+### Endpoints nuevos
+
+| Endpoint | Qué hace |
+|---|---|
+| `POST /refresh` | Canjea el refresh token por un par nuevo, con **rotación**. Si se presenta uno ya rotado → **401 `REFRESH_REUSED`** y se revocan todas las sesiones del usuario. |
+| `POST /verify` | Introspección sin estado: devuelve los claims del JWT. |
+
+### Claims del access token
+
+`iss: library-login`, `aud: library-api`, `sub`, `sid`, `jti`, `typ: access`,
+`email`, `role`, `name`, `iat`, `nbf`, `exp`.
+
+> El payload va **codificado en Base64URL, no cifrado**: cualquiera con el token
+> puede leerlo. Por eso solo lleva identificadores y metadatos, **nunca** la
+> contraseña ni su hash.
+
+### Seguridad del verificador
+
+Rechaza explícitamente `alg: none` (el algoritmo lo decide **el servidor**, nunca el
+token), compara la firma en **tiempo constante** (`hmac.compare_digest`), y valida
+`exp`, `nbf`, `iat`, `iss` y `aud` con 5 segundos de `leeway`. Cada rechazo devuelve
+un código distinto (`ALGORITHM_NONE_REJECTED`, `INVALID_SIGNATURE`, `TOKEN_EXPIRED`,
+`INVALID_AUDIENCE`, …) en vez de un 401 mudo.
+
+### Compatibilidad hacia atrás
+
+Sigue aceptando el `X-Session-Token` opaco de la versión anterior
+(`credential: "opaque"` en `GET /session`), y `/login` devuelve `access_token` y
+además `token` como alias, así que ningún cliente existente se rompió.
+
+### Configuración (`.env`)
+
+```
+JWT_SECRET=<secreto compartido con el servicio de libros>
+JWT_ALGORITHM=HS256
+JWT_ISSUER=library-login
+JWT_AUDIENCE=library-api
+JWT_ACCESS_MINUTES=15
+JWT_REFRESH_DAYS=7
+JWT_LEEWAY_SECONDS=5
+JWT_CHECK_SESSION=true
+```
+
+`JWT_CHECK_SESSION=true` hace que, **además de la firma**, se compruebe contra
+`user_sessions` que la sesión siga viva. Es lo que permite que un `logout` corte el
+acceso a este servicio de inmediato (el servicio de libros, al ser stateless, no se
+entera hasta que el token expira: a lo sumo 15 minutos).
+
+### Migración de base de datos
+
+`sql/03_migration_jwt.sql` añade a `user_sessions` las columnas `jti`, `token_type`,
+`rotated_at` y `replaced_by_hash`, más los índices y la vista `v_active_sessions`.
+
+### Pruebas
+
+`tests/smoke_test.py` cubre **69 aserciones** (todas correctas): emisión del JWT,
+ataques (`alg:none`, firma manipulada, expirado, issuer ajeno, otro secreto),
+rotación del refresh con detección de reuso, `/verify`, `/logout`, compatibilidad con
+el token opaco y `/health`.
+
+Evidencia completa, capturas y reflexión: `entrega_jwt/` (ver `entrega_jwt/README.md`).
+
+---
+
 ## 1. Archivos
 
 | Archivo | Descripción |

@@ -11,12 +11,20 @@
  * ESPECIFICACIONES CUMPLIDAS:
  * 1. GUI Profesional con Cards (Imagen, Autor, ISBN, Stock, Año, Género, Precio).
  * 2. Paginación y Carga por Petición en demanda.
- * 3. Consumo EXCLUSIVAMENTE de XML desde el microservicio remoto.
+ * 3. Consumo EXCLUSIVAMENTE de XML desde el microservicio.
  * 4. URL y Endpoint configurables y persistentes en LocalStorage.
  * 5. Procesamiento del árbol XML mediante DOMParser nativo.
+ * 6. AUTORIZACIÓN JWT: GET /books es un endpoint PÚBLICO, por lo que el
+ *    catálogo se consulta SIN token (y así se demuestra en las capturas).
+ *    El campo "JWT" es opcional: si se rellena, la petición viaja con
+ *    `Authorization: Bearer <token>`, que es lo que exigen las escrituras
+ *    (POST/PUT/PATCH/DELETE) del mismo microservicio.
  */
 
-const DEFAULT_BASE_URL = "http://34.51.8.146:5001";
+// Se usa 127.0.0.1 en lugar de localhost: en Windows, "localhost" resuelve
+// primero a IPv6 (::1) mientras el microservicio escucha en IPv4, y cada
+// petición esperaba ~2 s a que esa conexión fallara antes de reintentar.
+const DEFAULT_BASE_URL = "http://127.0.0.1:5001";
 const DEFAULT_ENDPOINT = "/books";
 
 // Estado de la Aplicación
@@ -32,13 +40,16 @@ let latestRawXml = "";
 function loadConfig() {
   const savedBase = localStorage.getItem("catalog_api_base_url") || DEFAULT_BASE_URL;
   const savedEndpoint = localStorage.getItem("catalog_api_endpoint") || DEFAULT_ENDPOINT;
+  const savedToken = localStorage.getItem("catalog_api_token") || "";
 
   document.getElementById("inputBaseUrl").value = savedBase;
   document.getElementById("inputEndpoint").value = savedEndpoint;
+  document.getElementById("inputToken").value = savedToken;
 
   return {
     baseUrl: savedBase.trim(),
-    endpoint: savedEndpoint.trim()
+    endpoint: savedEndpoint.trim(),
+    token: savedToken.trim()
   };
 }
 
@@ -48,6 +59,7 @@ function loadConfig() {
 function saveConfig() {
   const baseUrl = document.getElementById("inputBaseUrl").value.trim();
   const endpoint = document.getElementById("inputEndpoint").value.trim();
+  const token = document.getElementById("inputToken").value.trim();
 
   if (!baseUrl || !endpoint) {
     showToast("La URL y el EndPoint no pueden estar vacíos.", "error");
@@ -56,6 +68,7 @@ function saveConfig() {
 
   localStorage.setItem("catalog_api_base_url", baseUrl);
   localStorage.setItem("catalog_api_endpoint", endpoint);
+  localStorage.setItem("catalog_api_token", token);
 
   showToast("Configuración guardada en LocalStorage exitosamente.", "success");
   loadCatalogOnDemand();
@@ -67,14 +80,21 @@ function saveConfig() {
 function resetConfig() {
   localStorage.removeItem("catalog_api_base_url");
   localStorage.removeItem("catalog_api_endpoint");
+  localStorage.removeItem("catalog_api_token");
   document.getElementById("inputBaseUrl").value = DEFAULT_BASE_URL;
   document.getElementById("inputEndpoint").value = DEFAULT_ENDPOINT;
+  document.getElementById("inputToken").value = "";
   showToast("Configuración restablecida a valores por defecto.", "info");
   loadCatalogOnDemand();
 }
 
 /**
  * Consume EXCLUSIVAMENTE XML desde el microservicio y parsea con DOMParser
+ *
+ * Sobre la autorización: GET /books es público, así que la petición funciona
+ * con o sin token. Si el usuario pega un JWT, se añade el encabezado
+ * `Authorization: Bearer ...` para dejar ver el mismo mecanismo que protege
+ * las escrituras del microservicio.
  */
 async function loadCatalogOnDemand() {
   const config = loadConfig();
@@ -87,19 +107,23 @@ async function loadCatalogOnDemand() {
   // Construir la URL garantizando format=XML
   const cleanBase = config.baseUrl.replace(/\/+$/, '');
   let cleanEndpoint = config.endpoint.startsWith('/') ? config.endpoint : '/' + config.endpoint;
-  
+
   const separator = cleanEndpoint.includes('?') ? '&' : '?';
   const finalUrl = `${cleanBase}${cleanEndpoint}${separator}format=XML`;
 
+  // Cabeceras: el catálogo es público, pero si hay token se envía igualmente.
+  const headers = { "Accept": "application/xml, text/xml, */*" };
+  if (config.token) {
+    headers["Authorization"] = "Bearer " + config.token;
+  }
+
   console.log(`[HTTP GET XML] Solicitando catalogo en XML puro: ${finalUrl}`);
+  console.log(`[AUTORIZACION] ${config.token
+      ? "Authorization: Bearer " + config.token.slice(0, 24) + "..." + config.token.slice(-18)
+      : "(sin token: GET /books es un endpoint PUBLICO)"}`);
 
   try {
-    const response = await fetch(finalUrl, {
-      method: "GET",
-      headers: {
-        "Accept": "application/xml, text/xml, */*"
-      }
-    });
+    const response = await fetch(finalUrl, { method: "GET", headers });
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status} ${response.statusText}`);
@@ -123,10 +147,11 @@ async function loadCatalogOnDemand() {
     currentPage = 1;
 
     statusIndicator.className = "status-indicator online";
-    statusText.textContent = `Online: ${allBooksFromXml.length} libros (XML)`;
+    const modo = config.token ? "con JWT" : "lectura pública (sin token)";
+    statusText.textContent = `Online: ${allBooksFromXml.length} libros (XML) · ${modo}`;
 
     renderCatalog();
-    showToast(`Se cargaron ${allBooksFromXml.length} libros en formato XML.`, "success");
+    showToast(`Se cargaron ${allBooksFromXml.length} libros en formato XML (${modo}).`, "success");
 
   } catch (error) {
     console.error("[ERROR CARGA XML]", error);

@@ -1,0 +1,11 @@
+# Estado de ejecución de la prueba `app_python_jwt_smoke.py`.
+#
+# `session.json` guarda el correo y la contraseña de la cuenta desechable que la
+# prueba crea para ejercitar el login. Es una cuenta de usar y tirar contra una
+# base de datos local, pero un archivo con un campo "password" no tiene por qué
+# terminar en el repositorio ni en el entregable: la prueba lo regenera en cada
+# corrida, así que no se pierde nada al ignorarlo.
+#
+# `config.json` sí se versiona: no tiene credenciales y sirve para que la prueba
+# apunte a los puertos correctos sin tocar el `runtime/` real del usuario.
+session.json

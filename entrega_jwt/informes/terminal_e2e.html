@@ -1,0 +1,1827 @@
+<!DOCTYPE html><html lang='es'><head><meta charset='utf-8'><title>Bitácora E2E de los microservicios con JWT</title><style>
+  * { box-sizing: border-box; }
+  body { margin:0; background:#0b1120; color:#e2e8f0;
+         font-family: "Segoe UI", Inter, system-ui, sans-serif; }
+  .wrap { padding: 26px 30px 40px; }
+  h1 { font-size: 21px; margin:0 0 4px; color:#fff; }
+  .sub { color:#94a3b8; font-size:12.5px; margin-bottom:18px; }
+  .mono { font-family: Consolas, "Cascadia Mono", monospace; }
+  pre { margin:0; white-space:pre-wrap; word-break:break-word; }
+  table { border-collapse: collapse; width:100%; font-size:12px; }
+  th, td { border:1px solid #1e293b; padding:4px 8px; text-align:left;
+           vertical-align:top; font-family: Consolas, monospace; }
+  th { background:#111c30; color:#7dd3fc; font-weight:600; }
+  .ok   { color:#4ade80; font-weight:700; }
+  .bad  { color:#f87171; font-weight:700; }
+  .muted{ color:#94a3b8; }
+  .tag  { display:inline-block; padding:2px 8px; border-radius:999px;
+          font-size:11px; font-weight:700; letter-spacing:.4px; }
+</style></head><body><div class='wrap'>
+    <h1>Bitácora E2E de los microservicios con JWT</h1>
+    <div class="sub">Peticiones y respuestas literales del flujo completo: lectura pública, 401 sin token, 201 con Bearer, rotación del refresh y ataques rechazados.</div>
+    <div style="background:#05080f;border:1px solid #1e293b;border-radius:10px;padding:14px 16px;">
+      <div style="color:#64748b;font-size:11px;margin-bottom:10px;">
+        &#9679; consola &mdash; evidencia_e2e.txt
+      </div>
+      <pre class="mono" style="font-size:11.5px;line-height:1.42;"><span></span>
+<span style='color:#334155;'>==============================================================================</span>
+<span> EVIDENCIA E2E - AUTORIZACION POR JWT EN LOS MICROSERVICIOS DE LA LIBRERIA</span>
+<span style='color:#334155;'>==============================================================================</span>
+<span> Fecha de la corrida : 2026-09-29 17:10:19</span>
+<span> Host / instancia    : 172.32.132.174  (equipo: Faos)</span>
+<span> Servicio de login   : http://localhost:5000</span>
+<span> Servicio de libros  : http://localhost:5001</span>
+<span> Secreto compartido  : 998b858a0b50</span>
+<span></span>
+<span style='color:#334155;'>==============================================================================</span>
+<span> 1 y 2. REGLA CLAVE: LA MISMA RUTA, DOS AUTORIZACIONES DISTINTAS</span>
+<span style='color:#334155;'>==============================================================================</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  GET /books SIN token -&gt; PUBLICO. Es la misma ruta que el POST protegido: por eso la proteccion se decide por METODO HTTP, no por ruta.</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  GET /books?format=json HTTP/1.1</span>
+<span>  Accept: application/json</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 200</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:10:22 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 3722</span>
+<span>  X-Auth-Scheme: JWT HS256</span>
+<span>  X-Public-Methods: GET, HEAD, OPTIONS</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Access-Control-Expose-Headers: WWW-Authenticate</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;books&quot;: [</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Martin Kleppmann&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;Sistemas Distribuidos&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Físico Tapa Dura&quot;,</span>
+<span>        &quot;genres&quot;: &quot;Manual Técnico de Referencia, Patrones y Mejores Prácticas&quot;,</span>
+<span>        &quot;id&quot;: 1,</span>
+<span>        &quot;isbn&quot;: &quot;978-1491973042&quot;,</span>
+<span>        &quot;price&quot;: 45.0,</span>
+<span>        &quot;publication_year&quot;: 2017,</span>
+<span>        &quot;stock&quot;: 15,</span>
+<span>        &quot;title&quot;: &quot;Designing Data-Intensive Applications&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Robert C. Martin&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;Arquitectura de Software&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1532012164546-f432f2e3777a?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Físico Tapa Blanda&quot;,</span>
+<span>        &quot;genres&quot;: &quot;Patrones y Mejores Prácticas&quot;,</span>
+<span>        &quot;id&quot;: 2,</span>
+<span>        &quot;isbn&quot;: &quot;978-0134494166&quot;,</span>
+<span>        &quot;price&quot;: 39.99,</span>
+<span>        &quot;publication_year&quot;: 2017,</span>
+<span>        &quot;stock&quot;: 20,</span>
+<span>        &quot;title&quot;: &quot;Clean Architecture: A Craftsman Guide&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Sam Newman&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;Arquitectura de Software&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Físico Tapa Dura&quot;,</span>
+<span>        &quot;genres&quot;: &quot;Manual Técnico de Referencia, Patrones y Mejores Prácticas&quot;,</span>
+<span>        &quot;id&quot;: 3,</span>
+<span>        &quot;isbn&quot;: &quot;978-1491950357&quot;,</span>
+<span>        &quot;price&quot;: 49.5,</span>
+<span>        &quot;publication_year&quot;: 2021,</span>
+<span>        &quot;stock&quot;: 12,</span>
+<span>        &quot;title&quot;: &quot;Building Microservices: Designing Fine-Grained Systems&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Robert C. Martin&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;Arquitectura de Software&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Físico Tapa Blanda&quot;,</span>
+<span>        &quot;genres&quot;: &quot;Patrones y Mejores Prácticas&quot;,</span>
+<span>        &quot;id&quot;: 4,</span>
+<span>        &quot;isbn&quot;: &quot;978-0132350884&quot;,</span>
+<span>        &quot;price&quot;: 42.0,</span>
+<span>        &quot;publication_year&quot;: 2008,</span>
+<span>        &quot;stock&quot;: 25,</span>
+<span>        &quot;title&quot;: &quot;Clean Code: A Handbook of Agile Software&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Eric Evans&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;Arquitectura de Software&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Físico Tapa Dura&quot;,</span>
+<span>        &quot;genres&quot;: &quot;Patrones y Mejores Prácticas&quot;,</span>
+<span>        &quot;id&quot;: 5,</span>
+<span>        &quot;isbn&quot;: &quot;978-0321125217&quot;,</span>
+<span>        &quot;price&quot;: 55.0,</span>
+<span>        &quot;publication_year&quot;: 2003,</span>
+<span>        &quot;stock&quot;: 10,</span>
+<span>        &quot;title&quot;: &quot;Domain-Driven Design: Tackling Complexity&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Kelsey Hightower&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;Cloud Computing&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1667372393119-3d4c48d07fc9?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Digital PDF&quot;,</span>
+<span>        &quot;genres&quot;: &quot;Guía Práctica Paso a Paso&quot;,</span>
+<span>        &quot;id&quot;: 6,</span>
+<span>        &quot;isbn&quot;: &quot;978-1492043782&quot;,</span>
+<span>        &quot;price&quot;: 38.0,</span>
+<span>        &quot;publication_year&quot;: 2022,</span>
+<span>        &quot;stock&quot;: 18,</span>
+<span>        &quot;title&quot;: &quot;Kubernetes: Up and Running&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Sam Newman&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;Cloud Computing&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Digital EPUB&quot;,</span>
+<span>        &quot;genres&quot;: &quot;Patrones y Mejores Prácticas&quot;,</span>
+<span>        &quot;id&quot;: 7,</span>
+<span>        &quot;isbn&quot;: &quot;978-1492056010&quot;,</span>
+<span>        &quot;price&quot;: 44.0,</span>
+<span>        &quot;publication_year&quot;: 2019,</span>
+<span>        &quot;stock&quot;: 16,</span>
+<span>        &quot;title&quot;: &quot;Cloud Native Patterns: Designing Change-Tolerant Software&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Gene Kim&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;DevOps y SRE&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Edición de Bolsillo&quot;,</span>
+<span>        &quot;genres&quot;: &quot;Casos de Estudio Empresariales&quot;,</span>
+<span>        &quot;id&quot;: 8,</span>
+<span>        &quot;isbn&quot;: &quot;978-1950538478&quot;,</span>
+<span>        &quot;price&quot;: 28.0,</span>
+<span>        &quot;publication_year&quot;: 2018,</span>
+<span>        &quot;stock&quot;: 28,</span>
+<span>        &quot;title&quot;: &quot;The Phoenix Project: A Novel about IT and DevOps&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Andrew S. Tanenbaum&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;Redes y Comunicaciones&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Físico Tapa Dura&quot;,</span>
+<span>        &quot;genres&quot;: &quot;Libro de Texto Universitario&quot;,</span>
+<span>        &quot;id&quot;: 9,</span>
+<span>        &quot;isbn&quot;: &quot;978-0133492606&quot;,</span>
+<span>        &quot;price&quot;: 85.0,</span>
+<span>        &quot;publication_year&quot;: 2010,</span>
+<span>        &quot;stock&quot;: 4,</span>
+<span>        &quot;title&quot;: &quot;Computer Networks (5th Edition)&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Andrew S. Tanenbaum&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;Redes y Comunicaciones&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Físico Tapa Dura&quot;,</span>
+<span>        &quot;genres&quot;: &quot;Libro de Texto Universitario&quot;,</span>
+<span>        &quot;id&quot;: 10,</span>
+<span>        &quot;isbn&quot;: &quot;978-0134092669&quot;,</span>
+<span>        &quot;price&quot;: 78.0,</span>
+<span>        &quot;publication_year&quot;: 2015,</span>
+<span>        &quot;stock&quot;: 0,</span>
+<span>        &quot;title&quot;: &quot;Operating Systems: Design and Implementation&quot;</span>
+<span>      }</span>
+<span>    ],</span>
+<span>    &quot;count&quot;: 10</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   GET /books sin token responde 200 (publico)</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  POST /books SIN token -&gt; PROTEGIDO. Debe responder 401 con WWW-Authenticate.</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  POST /books HTTP/1.1</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 133</span>
+<span>  Accept: application/json</span>
+<span>  {</span>
+<span>    &quot;isbn&quot;: &quot;PRUEBA-JWT-613504&quot;,</span>
+<span>    &quot;title&quot;: &quot;Intento sin token&quot;,</span>
+<span>    &quot;publication_year&quot;: 2026,</span>
+<span>    &quot;price&quot;: 1.0,</span>
+<span>    &quot;format_id&quot;: 1,</span>
+<span>    &quot;category_id&quot;: 1</span>
+<span>  }</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 401</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:10:24 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 522</span>
+<span style='color:#7dd3fc;'>  WWW-Authenticate: Bearer realm=&quot;library-books&quot;, error=&quot;TOKEN_REQUIRED&quot;, error_description=&quot;Esta operación modifica el catálogo y requiere autenticación. Falta el encabezado &#x27;Authorization: Bearer &lt;access_token&gt;&#x27;.&quot;</span>
+<span>  X-Auth-Scheme: JWT HS256</span>
+<span>  X-Public-Methods: GET, HEAD, OPTIONS</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Access-Control-Expose-Headers: WWW-Authenticate</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;_links&quot;: {</span>
+<span>      &quot;captcha&quot;: {</span>
+<span>        &quot;href&quot;: &quot;http://localhost:5000/captcha&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;login&quot;: {</span>
+<span>        &quot;href&quot;: &quot;http://localhost:5000/login&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;public_catalog&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/books&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;refresh&quot;: {</span>
+<span>        &quot;href&quot;: &quot;http://localhost:5000/refresh&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      }</span>
+<span>    },</span>
+<span>    &quot;code&quot;: &quot;TOKEN_REQUIRED&quot;,</span>
+<span style='color:#7dd3fc;'>    &quot;error&quot;: &quot;Esta operación modifica el catálogo y requiere autenticación. Falta el encabezado &#x27;Authorization: Bearer &lt;access_token&gt;&#x27;.&quot;,</span>
+<span style='color:#7dd3fc;'>    &quot;hint&quot;: &quot;Envía el encabezado &#x27;Authorization: Bearer &lt;access_token&gt;&#x27;.&quot;,</span>
+<span>    &quot;status_code&quot;: 401</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   POST /books sin token responde 401</span>
+<span style='color:#4ade80;'>  [OK]   Codigo TOKEN_REQUIRED</span>
+<span style='color:#4ade80;'>  [OK]   Cabecera WWW-Authenticate presente</span>
+<span style='color:#4ade80;'>  [OK]   El error incluye _links hacia el servicio de login</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  POST /books?format=xml SIN token -&gt; el 401 tambien se negocia a XML.</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  POST /books?format=xml HTTP/1.1</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 133</span>
+<span>  Accept: application/json</span>
+<span>  {</span>
+<span>    &quot;isbn&quot;: &quot;PRUEBA-JWT-613504&quot;,</span>
+<span>    &quot;title&quot;: &quot;Intento sin token&quot;,</span>
+<span>    &quot;publication_year&quot;: 2026,</span>
+<span>    &quot;price&quot;: 1.0,</span>
+<span>    &quot;format_id&quot;: 1,</span>
+<span>    &quot;category_id&quot;: 1</span>
+<span>  }</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 401</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:10:26 GMT</span>
+<span>  Content-Type: application/xml; charset=utf-8</span>
+<span>  Content-Length: 786</span>
+<span style='color:#7dd3fc;'>  WWW-Authenticate: Bearer realm=&quot;library-books&quot;, error=&quot;TOKEN_REQUIRED&quot;, error_description=&quot;Esta operación modifica el catálogo y requiere autenticación. Falta el encabezado &#x27;Authorization: Bearer &lt;access_token&gt;&#x27;.&quot;</span>
+<span>  X-Auth-Scheme: JWT HS256</span>
+<span>  X-Public-Methods: GET, HEAD, OPTIONS</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Access-Control-Expose-Headers: WWW-Authenticate</span>
+<span>  Connection: close</span>
+<span>  &lt;?xml version=&#x27;1.0&#x27; encoding=&#x27;utf-8&#x27;?&gt;</span>
+<span>  &lt;error&gt;</span>
+<span style='color:#7dd3fc;'>    &lt;message&gt;Esta operación modifica el catálogo y requiere autenticación. Falta el encabezado &#x27;Authorization: Bearer &amp;lt;access_token&amp;gt;&#x27;.&lt;/message&gt;</span>
+<span style='color:#7dd3fc;'>    &lt;error&gt;Esta operación modifica el catálogo y requiere autenticación. Falta el encabezado &#x27;Authorization: Bearer &amp;lt;access_token&amp;gt;&#x27;.&lt;/error&gt;</span>
+<span>    &lt;code&gt;TOKEN_REQUIRED&lt;/code&gt;</span>
+<span>    &lt;status_code&gt;401&lt;/status_code&gt;</span>
+<span style='color:#7dd3fc;'>    &lt;hint&gt;Envía el encabezado &#x27;Authorization: Bearer &amp;lt;access_token&amp;gt;&#x27;.&lt;/hint&gt;</span>
+<span>    &lt;_links&gt;{&#x27;login&#x27;: {&#x27;href&#x27;: &#x27;http://localhost:5000/login&#x27;, &#x27;method&#x27;: &#x27;POST&#x27;}, &#x27;refresh&#x27;: {&#x27;href&#x27;: &#x27;http://localhost:5000/refresh&#x27;, &#x27;method&#x27;: &#x27;POST&#x27;}, &#x27;captcha&#x27;: {&#x27;href&#x27;: &#x27;http://localhost:5000/captcha&#x27;, &#x27;method&#x27;: &#x27;GET&#x27;}, &#x27;public_catalog&#x27;: {&#x27;href&#x27;: &#x27;/books&#x27;, &#x27;method&#x27;: &#x27;GET&#x27;}}&lt;/_links&gt;</span>
+<span>  &lt;/error&gt;</span>
+<span style='color:#4ade80;'>  [OK]   El 401 sin token tambien responde en XML</span>
+<span></span>
+<span style='color:#334155;'>==============================================================================</span>
+<span> 3. OBTENCION DEL TOKEN: CAPTCHA -&gt; REGISTRO -&gt; LOGIN</span>
+<span style='color:#334155;'>==============================================================================</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  GET /captcha (publico)</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  GET /captcha?format=json HTTP/1.1</span>
+<span>  Accept: application/json</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 200</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:10:28 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 474</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;status&quot;: &quot;success&quot;,</span>
+<span>    &quot;message&quot;: &quot;Resuelve el desafío y envíalo junto con captcha_id.&quot;,</span>
+<span>    &quot;data&quot;: {</span>
+<span>      &quot;captcha_id&quot;: &quot;eyJhIjo5LCJiIjozLCJleHAiOjE3OTA3MjM3MjgsIm4iOiJkNDM0OWI4NTg0Mjk0YjZlIiwib3AiOiItIn0=.3308a77043961e1941c6aa5701f58f70&quot;,</span>
+<span>      &quot;question&quot;: &quot;¿Cuánto es 9 - 3?&quot;,</span>
+<span>      &quot;expires_in&quot;: 300</span>
+<span>    },</span>
+<span>    &quot;_links&quot;: {</span>
+<span>      &quot;login&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/login&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;register&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/register&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      }</span>
+<span>    }</span>
+<span>  }</span>
+<span></span>
+<span>  Desafio resuelto: &#x27;¿Cuánto es 9 - 3?&#x27; -&gt; respuesta 6</span>
+<span style='color:#4ade80;'>  [OK]   El servicio entrega un desafio CAPTCHA</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  POST /register (usuario de prueba para la corrida)</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  POST /register?format=json HTTP/1.1</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 311</span>
+<span>  Accept: application/json</span>
+<span>  {</span>
+<span>    &quot;nombre&quot;: &quot;Prueba&quot;,</span>
+<span>    &quot;apellido_paterno&quot;: &quot;JWT&quot;,</span>
+<span>    &quot;apellido_materno&quot;: &quot;Integracion&quot;,</span>
+<span>    &quot;email&quot;: &quot;jwt.demo.1790723419@library.local&quot;,</span>
+<span>    &quot;password&quot;: &quot;S3gura!2026&quot;,</span>
+<span>    &quot;captcha_id&quot;: &quot;eyJhIjo5LCJiIjozLCJleHAiOjE3OTA3MjM3MjgsIm4iOiJkNDM0OWI4NTg0Mjk0YjZlIiwib3AiOiItIn0=.3308a77043961e1941c6aa5701f58f70&quot;,</span>
+<span>    &quot;captcha_answer&quot;: 6</span>
+<span>  }</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 201</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:10:31 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 531</span>
+<span>  Location: /users/46</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;status&quot;: &quot;success&quot;,</span>
+<span>    &quot;message&quot;: &quot;Usuario registrado correctamente.&quot;,</span>
+<span>    &quot;data&quot;: {</span>
+<span>      &quot;user&quot;: {</span>
+<span>        &quot;id&quot;: 46,</span>
+<span>        &quot;nombre&quot;: &quot;Prueba&quot;,</span>
+<span>        &quot;apellido_paterno&quot;: &quot;JWT&quot;,</span>
+<span>        &quot;apellido_materno&quot;: &quot;Integracion&quot;,</span>
+<span>        &quot;email&quot;: &quot;jwt.demo.1790723419@library.local&quot;,</span>
+<span>        &quot;role&quot;: &quot;Usuario&quot;</span>
+<span>      }</span>
+<span>    },</span>
+<span>    &quot;_links&quot;: {</span>
+<span>      &quot;login&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/login&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;user&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/users/46&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;self&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/users/46&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      }</span>
+<span>    }</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   Registro 201</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  GET /captcha (nuevo desafio para el login)</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  GET /captcha?format=json HTTP/1.1</span>
+<span>  Accept: application/json</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 200</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:10:33 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 474</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;status&quot;: &quot;success&quot;,</span>
+<span>    &quot;message&quot;: &quot;Resuelve el desafío y envíalo junto con captcha_id.&quot;,</span>
+<span>    &quot;data&quot;: {</span>
+<span>      &quot;captcha_id&quot;: &quot;eyJhIjo1LCJiIjo2LCJleHAiOjE3OTA3MjM3MzMsIm4iOiI1MDNlMjEwMzllNzY0OTc4Iiwib3AiOiIrIn0=.3faffe8f54fdce034896789a4b7fe889&quot;,</span>
+<span>      &quot;question&quot;: &quot;¿Cuánto es 5 + 6?&quot;,</span>
+<span>      &quot;expires_in&quot;: 300</span>
+<span>    },</span>
+<span>    &quot;_links&quot;: {</span>
+<span>      &quot;login&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/login&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;register&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/register&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      }</span>
+<span>    }</span>
+<span>  }</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  POST /login -&gt; aqui nace el JWT (access_token) y el refresh_token</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  POST /login?format=json HTTP/1.1</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 230</span>
+<span>  Accept: application/json</span>
+<span>  {</span>
+<span>    &quot;email&quot;: &quot;jwt.demo.1790723419@library.local&quot;,</span>
+<span>    &quot;password&quot;: &quot;S3gura!2026&quot;,</span>
+<span>    &quot;captcha_id&quot;: &quot;eyJhIjo1LCJiIjo2LCJleHAiOjE3OTA3MjM3MzMsIm4iOiI1MDNlMjEwMzllNzY0OTc4Iiwib3AiOiIrIn0=.3faffe8f54fdce034896789a4b7fe889&quot;,</span>
+<span>    &quot;captcha_answer&quot;: 11</span>
+<span>  }</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 200</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:10:36 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 2312</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;status&quot;: &quot;success&quot;,</span>
+<span style='color:#7dd3fc;'>    &quot;message&quot;: &quot;Autenticación exitosa. Usa &#x27;Authorization: Bearer &lt;access_token&gt;&#x27;.&quot;,</span>
+<span>    &quot;data&quot;: {</span>
+<span>      &quot;user&quot;: {</span>
+<span>        &quot;id&quot;: 46,</span>
+<span>        &quot;nombre&quot;: &quot;Prueba&quot;,</span>
+<span>        &quot;apellido_paterno&quot;: &quot;JWT&quot;,</span>
+<span>        &quot;apellido_materno&quot;: &quot;Integracion&quot;,</span>
+<span>        &quot;email&quot;: &quot;jwt.demo.1790723419@library.local&quot;,</span>
+<span>        &quot;role&quot;: &quot;Usuario&quot;</span>
+<span>      },</span>
+<span>      &quot;session&quot;: {</span>
+<span>        &quot;access_token&quot;: &quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJsaWJyYXJ5LWFwaSIsImVtYWlsIjoiand0LmRlbW8uMTc5MDcyMzQxOUBsaWJyYXJ5LmxvY2FsIiwiZXhwIjoxNzkwNzI0MzM1LCJpYXQiOjE3OTA3MjM0MzUsImlzcyI6ImxpYnJhcnktbG9naW4iLCJqdGkiOiI1MWVkNzQ1MS00ZmE0LTQzMzgtODUyMi03ZGRmOTU1ZWRkNjAiLCJuYW1lIjoiUHJ1ZWJhIEpXVCIsIm5iZiI6MTc5MDcyMzQzNSwicm9sZSI6IlVzdWFyaW8iLCJzaWQiOjQ1LCJzdWIiOiI0NiIsInR5cCI6ImFjY2VzcyJ9.Qv9SEUSXwuC8LIcNwNzyjCzTpf9BDTp8q4hfJ550chc&quot;,</span>
+<span>        &quot;token&quot;: &quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJsaWJyYXJ5LWFwaSIsImVtYWlsIjoiand0LmRlbW8uMTc5MDcyMzQxOUBsaWJyYXJ5LmxvY2FsIiwiZXhwIjoxNzkwNzI0MzM1LCJpYXQiOjE3OTA3MjM0MzUsImlzcyI6ImxpYnJhcnktbG9naW4iLCJqdGkiOiI1MWVkNzQ1MS00ZmE0LTQzMzgtODUyMi03ZGRmOTU1ZWRkNjAiLCJuYW1lIjoiUHJ1ZWJhIEpXVCIsIm5iZiI6MTc5MDcyMzQzNSwicm9sZSI6IlVzdWFyaW8iLCJzaWQiOjQ1LCJzdWIiOiI0NiIsInR5cCI6ImFjY2VzcyJ9.Qv9SEUSXwuC8LIcNwNzyjCzTpf9BDTp8q4hfJ550chc&quot;,</span>
+<span>        &quot;token_type&quot;: &quot;Bearer&quot;,</span>
+<span>        &quot;header&quot;: &quot;Authorization&quot;,</span>
+<span>        &quot;algorithm&quot;: &quot;HS256&quot;,</span>
+<span>        &quot;expires_in&quot;: 900,</span>
+<span>        &quot;expires_at&quot;: &quot;2026-09-29T23:25:35.992270+00:00&quot;,</span>
+<span>        &quot;refresh_token&quot;: &quot;iUlFSktQdu52ZXXuYMxAbtE5OOCEqCcEqT6J9IBEy9EPYc50BsQGu0iG6h4m6AGY&quot;,</span>
+<span>        &quot;refresh_expires_in&quot;: 604800,</span>
+<span>        &quot;refresh_expires_at&quot;: &quot;2026-10-06T17:10:35.942161-06:00&quot;,</span>
+<span>        &quot;refresh_endpoint&quot;: &quot;/refresh&quot;,</span>
+<span>        &quot;issuer&quot;: &quot;library-login&quot;,</span>
+<span>        &quot;audience&quot;: &quot;library-api&quot;</span>
+<span>      }</span>
+<span>    },</span>
+<span>    &quot;_links&quot;: {</span>
+<span>      &quot;self&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/session&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;logout&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/logout&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;user&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/users/46&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;captcha&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/captcha&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;profile&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/profile&quot;,</span>
+<span>        &quot;method&quot;: &quot;PATCH&quot;</span>
+<span>      },</span>
+<span>      &quot;extend&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/session/extend&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;refresh&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/refresh&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;verify&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/verify&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      }</span>
+<span>    }</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   Login 200</span>
+<span style='color:#4ade80;'>  [OK]   Devuelve access_token JWT (3 segmentos)</span>
+<span style='color:#4ade80;'>  [OK]   Devuelve refresh_token</span>
+<span style='color:#4ade80;'>  [OK]   token_type = Bearer</span>
+<span style='color:#4ade80;'>  [OK]   expires_in = 900 s</span>
+<span></span>
+<span style='color:#334155;'>==============================================================================</span>
+<span> 4. INSPECCION DEL JWT EMITIDO (header / payload / firma)</span>
+<span style='color:#334155;'>==============================================================================</span>
+<span></span>
+<span>  HEADER   : {&quot;alg&quot;: &quot;HS256&quot;, &quot;typ&quot;: &quot;JWT&quot;}</span>
+<span>  PAYLOAD  : {&quot;aud&quot;: &quot;library-api&quot;, &quot;email&quot;: &quot;jwt.demo.1790723419@library.local&quot;, &quot;exp&quot;: 1790724335, &quot;iat&quot;: 1790723435, &quot;iss&quot;: &quot;library-login&quot;, &quot;jti&quot;: &quot;51ed7451-4fa4-4338-8522-7ddf955edd60&quot;, &quot;name&quot;: &quot;Prueba JWT&quot;, &quot;nbf&quot;: 1790723435, &quot;role&quot;: &quot;Usuario&quot;, &quot;sid&quot;: 45, &quot;sub&quot;: &quot;46&quot;, &quot;typ&quot;: &quot;access&quot;}</span>
+<span>  FIRMA    : Qv9SEUSXwuC8LIcNwNzyjCzTpf9BDTp8...  (43 caracteres base64url)</span>
+<span>  LONGITUD : 421 caracteres</span>
+<span style='color:#4ade80;'>  [OK]   Header declara HS256</span>
+<span style='color:#4ade80;'>  [OK]   Payload trae sub/sid/jti/iss/aud/exp</span>
+<span style='color:#4ade80;'>  [OK]   iss = library-login</span>
+<span style='color:#4ade80;'>  [OK]   aud = library-api</span>
+<span style='color:#4ade80;'>  [OK]   Vigencia del access token = 15 min</span>
+<span></span>
+<span style='color:#334155;'>==============================================================================</span>
+<span> 5. ESCRITURA CON TOKEN: POST /books</span>
+<span style='color:#334155;'>==============================================================================</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  GET /catalogs (publico: ids reales para el alta)</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  GET /catalogs HTTP/1.1</span>
+<span>  Accept: application/json</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 200</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:10:42 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 1720</span>
+<span>  X-Auth-Scheme: JWT HS256</span>
+<span>  X-Public-Methods: GET, HEAD, OPTIONS</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Access-Control-Expose-Headers: WWW-Authenticate</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;authors&quot;: [</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 2,</span>
+<span>        &quot;name&quot;: &quot;Andrew S. Tanenbaum&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 6,</span>
+<span>        &quot;name&quot;: &quot;Brendan Gregg&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 3,</span>
+<span>        &quot;name&quot;: &quot;Donald E. Knuth&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 4,</span>
+<span>        &quot;name&quot;: &quot;Eric Evans&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 10,</span>
+<span>        &quot;name&quot;: &quot;Gene Kim&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 9,</span>
+<span>        &quot;name&quot;: &quot;Gregor Hohpe&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 11,</span>
+<span>        &quot;name&quot;: &quot;Kelsey Hightower&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 1,</span>
+<span>        &quot;name&quot;: &quot;Martin Fowler&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 12,</span>
+<span>        &quot;name&quot;: &quot;Martin Kleppmann&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 7,</span>
+<span>        &quot;name&quot;: &quot;Michael T. Nygard&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 5,</span>
+<span>        &quot;name&quot;: &quot;Robert C. Martin&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 8,</span>
+<span>        &quot;name&quot;: &quot;Sam Newman&quot;</span>
+<span>      }</span>
+<span>    ],</span>
+<span>    &quot;categories&quot;: [</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 8,</span>
+<span>        &quot;name&quot;: &quot;Arquitectura de Software&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 4,</span>
+<span>        &quot;name&quot;: &quot;Bases de Datos&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 1,</span>
+<span>        &quot;name&quot;: &quot;Cloud Computing&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 9,</span>
+<span>        &quot;name&quot;: &quot;Desarrollo Web Fullstack&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 7,</span>
+<span>        &quot;name&quot;: &quot;DevOps y SRE&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 10,</span>
+<span>        &quot;name&quot;: &quot;Ingeniería de Datos&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 3,</span>
+<span>        &quot;name&quot;: &quot;Inteligencia Artificial&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 6,</span>
+<span>        &quot;name&quot;: &quot;Redes y Comunicaciones&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 5,</span>
+<span>        &quot;name&quot;: &quot;Seguridad Informática&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 2,</span>
+<span>        &quot;name&quot;: &quot;Sistemas Distribuidos&quot;</span>
+<span>      }</span>
+<span>    ],</span>
+<span>    &quot;formats&quot;: [</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 7,</span>
+<span>        &quot;name&quot;: &quot;Audiolibro M4B&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 6,</span>
+<span>        &quot;name&quot;: &quot;Audiolibro MP3&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 4,</span>
+<span>        &quot;name&quot;: &quot;Digital EPUB&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 5,</span>
+<span>        &quot;name&quot;: &quot;Digital MOBI&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 3,</span>
+<span>        &quot;name&quot;: &quot;Digital PDF&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 9,</span>
+<span>        &quot;name&quot;: &quot;Edición de Bolsillo&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 8,</span>
+<span>        &quot;name&quot;: &quot;Espiral / Wire-O&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 10,</span>
+<span>        &quot;name&quot;: &quot;Fascículo Técnico&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 2,</span>
+<span>        &quot;name&quot;: &quot;Físico Tapa Blanda&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 1,</span>
+<span>        &quot;name&quot;: &quot;Físico Tapa Dura&quot;</span>
+<span>      }</span>
+<span>    ],</span>
+<span>    &quot;genres&quot;: [</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 7,</span>
+<span>        &quot;name&quot;: &quot;Casos de Estudio Empresariales&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 8,</span>
+<span>        &quot;name&quot;: &quot;Cookbook de Código y Recetas&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 6,</span>
+<span>        &quot;name&quot;: &quot;Ensayo de Filosofía Tecnológica&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 4,</span>
+<span>        &quot;name&quot;: &quot;Guía Práctica Paso a Paso&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 10,</span>
+<span>        &quot;name&quot;: &quot;Historia de la Computación&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 2,</span>
+<span>        &quot;name&quot;: &quot;Libro de Texto Universitario&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 1,</span>
+<span>        &quot;name&quot;: &quot;Manual Técnico de Referencia&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 3,</span>
+<span>        &quot;name&quot;: &quot;Monografía Especializada&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 5,</span>
+<span>        &quot;name&quot;: &quot;Patrones y Mejores Prácticas&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;id&quot;: 9,</span>
+<span>        &quot;name&quot;: &quot;Tratado Teórico Formal&quot;</span>
+<span>      }</span>
+<span>    ]</span>
+<span>  }</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span style='color:#7dd3fc;'>  POST /books CON Authorization: Bearer &lt;JWT&gt; -&gt; 201</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  POST /books HTTP/1.1</span>
+<span style='color:#7dd3fc;'>  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...f9BDTp8q4hfJ550chc</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 185</span>
+<span>  Accept: application/json</span>
+<span>  {</span>
+<span>    &quot;isbn&quot;: &quot;PRUEBA-JWT-613504&quot;,</span>
+<span>    &quot;title&quot;: &quot;PRUEBA JWT - 613504&quot;,</span>
+<span>    &quot;publication_year&quot;: 2026,</span>
+<span>    &quot;price&quot;: 499.0,</span>
+<span>    &quot;stock&quot;: 7,</span>
+<span>    &quot;format_id&quot;: 7,</span>
+<span>    &quot;category_id&quot;: 8,</span>
+<span>    &quot;author_ids&quot;: [</span>
+<span>      2</span>
+<span>    ],</span>
+<span>    &quot;genre_ids&quot;: []</span>
+<span>  }</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 201</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:10:44 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 114</span>
+<span>  X-Auth-Scheme: JWT HS256</span>
+<span>  X-Public-Methods: GET, HEAD, OPTIONS</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Access-Control-Expose-Headers: WWW-Authenticate</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;book_id&quot;: 48,</span>
+<span>    &quot;isbn&quot;: &quot;PRUEBA-JWT-613504&quot;,</span>
+<span>    &quot;message&quot;: &quot;Libro registrado exitosamente&quot;,</span>
+<span>    &quot;title&quot;: &quot;PRUEBA JWT - 613504&quot;</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   POST /books con token responde 201</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  GET /books/{isbn} SIN token -&gt; PUBLICO (misma ruta que el PUT protegido)</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  GET /books/PRUEBA-JWT-613504?format=json HTTP/1.1</span>
+<span>  Accept: application/json</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 200</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:10:46 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 474</span>
+<span>  X-Auth-Scheme: JWT HS256</span>
+<span>  X-Public-Methods: GET, HEAD, OPTIONS</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Access-Control-Expose-Headers: WWW-Authenticate</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;authors&quot;: [</span>
+<span>      {</span>
+<span>        &quot;biography&quot;: &quot;Profesor emérito y creador de MINIX, autor clásico en redes y SO&quot;,</span>
+<span>        &quot;country&quot;: &quot;Países Bajos&quot;,</span>
+<span>        &quot;id&quot;: 2,</span>
+<span>        &quot;name&quot;: &quot;Andrew S. Tanenbaum&quot;</span>
+<span>      }</span>
+<span>    ],</span>
+<span>    &quot;category_id&quot;: 8,</span>
+<span>    &quot;category_name&quot;: &quot;Arquitectura de Software&quot;,</span>
+<span>    &quot;concepts&quot;: [],</span>
+<span>    &quot;created_at&quot;: &quot;2026-09-29T17:10:44.523722-06:00&quot;,</span>
+<span>    &quot;format_id&quot;: 7,</span>
+<span>    &quot;format_name&quot;: &quot;Audiolibro M4B&quot;,</span>
+<span>    &quot;genres&quot;: [],</span>
+<span>    &quot;id&quot;: 48,</span>
+<span>    &quot;images&quot;: [],</span>
+<span>    &quot;isbn&quot;: &quot;PRUEBA-JWT-613504&quot;,</span>
+<span>    &quot;price&quot;: 499.0,</span>
+<span>    &quot;publication_year&quot;: 2026,</span>
+<span>    &quot;stock&quot;: 7,</span>
+<span>    &quot;title&quot;: &quot;PRUEBA JWT - 613504&quot;</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   GET /books/{isbn} sin token responde 200</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  PUT /books/{isbn} CON token -&gt; 200 (reemplazo completo)</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  PUT /books/PRUEBA-JWT-613504 HTTP/1.1</span>
+<span style='color:#7dd3fc;'>  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...f9BDTp8q4hfJ550chc</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 171</span>
+<span>  Accept: application/json</span>
+<span>  {</span>
+<span>    &quot;title&quot;: &quot;PRUEBA JWT - 613504 (PUT completo)&quot;,</span>
+<span>    &quot;publication_year&quot;: 2026,</span>
+<span>    &quot;price&quot;: 599.0,</span>
+<span>    &quot;stock&quot;: 9,</span>
+<span>    &quot;format_id&quot;: 7,</span>
+<span>    &quot;category_id&quot;: 8,</span>
+<span>    &quot;author_ids&quot;: [</span>
+<span>      2</span>
+<span>    ],</span>
+<span>    &quot;genre_ids&quot;: []</span>
+<span>  }</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 200</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:10:48 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 73</span>
+<span>  X-Auth-Scheme: JWT HS256</span>
+<span>  X-Public-Methods: GET, HEAD, OPTIONS</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Access-Control-Expose-Headers: WWW-Authenticate</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;isbn&quot;: &quot;PRUEBA-JWT-613504&quot;,</span>
+<span>    &quot;message&quot;: &quot;Libro actualizado correctamente&quot;</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   PUT con token responde 200</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  PATCH /books/{isbn} CON token -&gt; 200 (modificacion parcial)</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  PATCH /books/PRUEBA-JWT-613504 HTTP/1.1</span>
+<span style='color:#7dd3fc;'>  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...f9BDTp8q4hfJ550chc</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 29</span>
+<span>  Accept: application/json</span>
+<span>  {</span>
+<span>    &quot;price&quot;: 650.0,</span>
+<span>    &quot;stock&quot;: 11</span>
+<span>  }</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 200</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:10:50 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 107</span>
+<span>  X-Auth-Scheme: JWT HS256</span>
+<span>  X-Public-Methods: GET, HEAD, OPTIONS</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Access-Control-Expose-Headers: WWW-Authenticate</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;isbn&quot;: &quot;PRUEBA-JWT-613504&quot;,</span>
+<span>    &quot;message&quot;: &quot;Libro modificado parcialmente&quot;,</span>
+<span>    &quot;modified_fields&quot;: [</span>
+<span>      &quot;price&quot;,</span>
+<span>      &quot;stock&quot;</span>
+<span>    ]</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   PATCH con token responde 200</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  POST /api/book/insert CON token -&gt; 201: el ALIAS de escritura tambien queda cubierto</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  POST /api/book/insert HTTP/1.1</span>
+<span style='color:#7dd3fc;'>  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...f9BDTp8q4hfJ550chc</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 167</span>
+<span>  Accept: application/json</span>
+<span>  {</span>
+<span>    &quot;isbn&quot;: &quot;PRUEBA-ALIAS-613504&quot;,</span>
+<span>    &quot;title&quot;: &quot;PRUEBA JWT - ALIAS /api/book/insert&quot;,</span>
+<span>    &quot;publication_year&quot;: 2026,</span>
+<span>    &quot;price&quot;: 199.0,</span>
+<span>    &quot;stock&quot;: 3,</span>
+<span>    &quot;format_id&quot;: 7,</span>
+<span>    &quot;category_id&quot;: 8</span>
+<span>  }</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 201</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:10:53 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 132</span>
+<span>  X-Auth-Scheme: JWT HS256</span>
+<span>  X-Public-Methods: GET, HEAD, OPTIONS</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Access-Control-Expose-Headers: WWW-Authenticate</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;book_id&quot;: 49,</span>
+<span>    &quot;isbn&quot;: &quot;PRUEBA-ALIAS-613504&quot;,</span>
+<span>    &quot;message&quot;: &quot;Libro registrado exitosamente&quot;,</span>
+<span>    &quot;title&quot;: &quot;PRUEBA JWT - ALIAS /api/book/insert&quot;</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   El alias /api/book/insert exige y acepta token</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  POST /api/book/insert SIN token -&gt; 401 (no hay puerta trasera por el alias)</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  POST /api/book/insert HTTP/1.1</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 126</span>
+<span>  Accept: application/json</span>
+<span>  {</span>
+<span>    &quot;isbn&quot;: &quot;PRUEBA-JWT-ALIAS-SIN-TOKEN&quot;,</span>
+<span>    &quot;title&quot;: &quot;x&quot;,</span>
+<span>    &quot;publication_year&quot;: 2026,</span>
+<span>    &quot;price&quot;: 1.0,</span>
+<span>    &quot;format_id&quot;: 7,</span>
+<span>    &quot;category_id&quot;: 8</span>
+<span>  }</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 401</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:10:55 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 522</span>
+<span style='color:#7dd3fc;'>  WWW-Authenticate: Bearer realm=&quot;library-books&quot;, error=&quot;TOKEN_REQUIRED&quot;, error_description=&quot;Esta operación modifica el catálogo y requiere autenticación. Falta el encabezado &#x27;Authorization: Bearer &lt;access_token&gt;&#x27;.&quot;</span>
+<span>  X-Auth-Scheme: JWT HS256</span>
+<span>  X-Public-Methods: GET, HEAD, OPTIONS</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Access-Control-Expose-Headers: WWW-Authenticate</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;_links&quot;: {</span>
+<span>      &quot;captcha&quot;: {</span>
+<span>        &quot;href&quot;: &quot;http://localhost:5000/captcha&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;login&quot;: {</span>
+<span>        &quot;href&quot;: &quot;http://localhost:5000/login&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;public_catalog&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/books&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;refresh&quot;: {</span>
+<span>        &quot;href&quot;: &quot;http://localhost:5000/refresh&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      }</span>
+<span>    },</span>
+<span>    &quot;code&quot;: &quot;TOKEN_REQUIRED&quot;,</span>
+<span style='color:#7dd3fc;'>    &quot;error&quot;: &quot;Esta operación modifica el catálogo y requiere autenticación. Falta el encabezado &#x27;Authorization: Bearer &lt;access_token&gt;&#x27;.&quot;,</span>
+<span style='color:#7dd3fc;'>    &quot;hint&quot;: &quot;Envía el encabezado &#x27;Authorization: Bearer &lt;access_token&gt;&#x27;.&quot;,</span>
+<span>    &quot;status_code&quot;: 401</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   El alias de escritura sin token responde 401</span>
+<span></span>
+<span style='color:#334155;'>==============================================================================</span>
+<span> 6. SESION Y REFRESCO</span>
+<span style='color:#334155;'>==============================================================================</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  GET /session CON Bearer -&gt; el servicio de login valida el JWT</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  GET /session?format=json HTTP/1.1</span>
+<span style='color:#7dd3fc;'>  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...f9BDTp8q4hfJ550chc</span>
+<span>  Accept: application/json</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 200</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:10:57 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 1346</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;status&quot;: &quot;success&quot;,</span>
+<span>    &quot;message&quot;: &quot;Sesión activa.&quot;,</span>
+<span>    &quot;data&quot;: {</span>
+<span>      &quot;authenticated&quot;: true,</span>
+<span>      &quot;user&quot;: {</span>
+<span>        &quot;id&quot;: 46,</span>
+<span>        &quot;nombre&quot;: &quot;Prueba&quot;,</span>
+<span>        &quot;apellido_paterno&quot;: &quot;JWT&quot;,</span>
+<span>        &quot;apellido_materno&quot;: &quot;Integracion&quot;,</span>
+<span>        &quot;email&quot;: &quot;jwt.demo.1790723419@library.local&quot;,</span>
+<span>        &quot;role&quot;: &quot;Usuario&quot;</span>
+<span>      },</span>
+<span>      &quot;session&quot;: {</span>
+<span>        &quot;credential&quot;: &quot;jwt&quot;,</span>
+<span>        &quot;expires_at&quot;: &quot;2026-10-06T17:10:35.942161-06:00&quot;,</span>
+<span>        &quot;remaining_seconds&quot;: 604778,</span>
+<span>        &quot;duration_minutes&quot;: 30</span>
+<span>      },</span>
+<span>      &quot;jwt&quot;: {</span>
+<span>        &quot;sub&quot;: &quot;46&quot;,</span>
+<span>        &quot;sid&quot;: 45,</span>
+<span>        &quot;jti&quot;: &quot;51ed7451-4fa4-4338-8522-7ddf955edd60&quot;,</span>
+<span>        &quot;iss&quot;: &quot;library-login&quot;,</span>
+<span>        &quot;aud&quot;: &quot;library-api&quot;,</span>
+<span>        &quot;role&quot;: &quot;Usuario&quot;,</span>
+<span>        &quot;exp&quot;: &quot;2026-09-29T23:25:35+00:00&quot;,</span>
+<span>        &quot;remaining_seconds&quot;: 877</span>
+<span>      }</span>
+<span>    },</span>
+<span>    &quot;_links&quot;: {</span>
+<span>      &quot;self&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/session&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;logout&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/logout&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;user&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/users/46&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;captcha&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/captcha&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;profile&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/profile&quot;,</span>
+<span>        &quot;method&quot;: &quot;PATCH&quot;</span>
+<span>      },</span>
+<span>      &quot;extend&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/session/extend&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;refresh&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/refresh&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;verify&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/verify&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      }</span>
+<span>    }</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   GET /session con Bearer responde 200</span>
+<span style='color:#4ade80;'>  [OK]   credential = jwt</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  POST /verify -&gt; introspeccion sin estado del token</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  POST /verify?format=json HTTP/1.1</span>
+<span style='color:#7dd3fc;'>  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...f9BDTp8q4hfJ550chc</span>
+<span>  Accept: application/json</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 200</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:10:59 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 700</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;status&quot;: &quot;success&quot;,</span>
+<span>    &quot;message&quot;: &quot;Token válido.&quot;,</span>
+<span>    &quot;data&quot;: {</span>
+<span>      &quot;valid&quot;: true,</span>
+<span>      &quot;claims&quot;: {</span>
+<span>        &quot;aud&quot;: &quot;library-api&quot;,</span>
+<span>        &quot;email&quot;: &quot;jwt.demo.1790723419@library.local&quot;,</span>
+<span>        &quot;exp&quot;: 1790724335,</span>
+<span>        &quot;iat&quot;: 1790723435,</span>
+<span>        &quot;iss&quot;: &quot;library-login&quot;,</span>
+<span>        &quot;jti&quot;: &quot;51ed7451-4fa4-4338-8522-7ddf955edd60&quot;,</span>
+<span>        &quot;name&quot;: &quot;Prueba JWT&quot;,</span>
+<span>        &quot;nbf&quot;: 1790723435,</span>
+<span>        &quot;role&quot;: &quot;Usuario&quot;,</span>
+<span>        &quot;sid&quot;: 45,</span>
+<span>        &quot;sub&quot;: &quot;46&quot;,</span>
+<span>        &quot;typ&quot;: &quot;access&quot;</span>
+<span>      },</span>
+<span>      &quot;expires_at&quot;: &quot;2026-09-29T23:25:35+00:00&quot;,</span>
+<span>      &quot;remaining_seconds&quot;: 875</span>
+<span>    },</span>
+<span>    &quot;_links&quot;: {</span>
+<span>      &quot;login&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/login&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;refresh&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/refresh&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      }</span>
+<span>    }</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   POST /verify responde valid=true</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  POST /refresh -&gt; rota el refresh token y emite un JWT nuevo</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  POST /refresh?format=json HTTP/1.1</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 85</span>
+<span>  Accept: application/json</span>
+<span>  {</span>
+<span>    &quot;refresh_token&quot;: &quot;iUlFSktQdu52ZXXuYMxAbtE5OOCEqCcEqT6J9IBEy9EPYc50BsQGu0iG6h4m6AGY&quot;</span>
+<span>  }</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 200</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:11:01 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 2317</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;status&quot;: &quot;success&quot;,</span>
+<span>    &quot;message&quot;: &quot;Tokens renovados. El refresh token anterior quedó revocado (rotación).&quot;,</span>
+<span>    &quot;data&quot;: {</span>
+<span>      &quot;user&quot;: {</span>
+<span>        &quot;id&quot;: 45,</span>
+<span>        &quot;nombre&quot;: &quot;Prueba&quot;,</span>
+<span>        &quot;apellido_paterno&quot;: &quot;JWT&quot;,</span>
+<span>        &quot;apellido_materno&quot;: &quot;Integracion&quot;,</span>
+<span>        &quot;email&quot;: &quot;jwt.demo.1790723419@library.local&quot;,</span>
+<span>        &quot;role&quot;: &quot;Usuario&quot;</span>
+<span>      },</span>
+<span>      &quot;session&quot;: {</span>
+<span>        &quot;access_token&quot;: &quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJsaWJyYXJ5LWFwaSIsImVtYWlsIjoiand0LmRlbW8uMTc5MDcyMzQxOUBsaWJyYXJ5LmxvY2FsIiwiZXhwIjoxNzkwNzI0MzYxLCJpYXQiOjE3OTA3MjM0NjEsImlzcyI6ImxpYnJhcnktbG9naW4iLCJqdGkiOiJlNWMyZjM5Yi0yY2M5LTQ1NWEtYjZkNy1kZWU2OTgzOWY2MDciLCJuYW1lIjoiUHJ1ZWJhIEpXVCIsIm5iZiI6MTc5MDcyMzQ2MSwicm9sZSI6IlVzdWFyaW8iLCJzaWQiOjQ2LCJzdWIiOiI0NiIsInR5cCI6ImFjY2VzcyJ9.D-j8QKjtVrAkrW788fZ9niMGXeqQSsZTcjp85vVvphw&quot;,</span>
+<span>        &quot;token&quot;: &quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJsaWJyYXJ5LWFwaSIsImVtYWlsIjoiand0LmRlbW8uMTc5MDcyMzQxOUBsaWJyYXJ5LmxvY2FsIiwiZXhwIjoxNzkwNzI0MzYxLCJpYXQiOjE3OTA3MjM0NjEsImlzcyI6ImxpYnJhcnktbG9naW4iLCJqdGkiOiJlNWMyZjM5Yi0yY2M5LTQ1NWEtYjZkNy1kZWU2OTgzOWY2MDciLCJuYW1lIjoiUHJ1ZWJhIEpXVCIsIm5iZiI6MTc5MDcyMzQ2MSwicm9sZSI6IlVzdWFyaW8iLCJzaWQiOjQ2LCJzdWIiOiI0NiIsInR5cCI6ImFjY2VzcyJ9.D-j8QKjtVrAkrW788fZ9niMGXeqQSsZTcjp85vVvphw&quot;,</span>
+<span>        &quot;token_type&quot;: &quot;Bearer&quot;,</span>
+<span>        &quot;header&quot;: &quot;Authorization&quot;,</span>
+<span>        &quot;algorithm&quot;: &quot;HS256&quot;,</span>
+<span>        &quot;expires_in&quot;: 900,</span>
+<span>        &quot;expires_at&quot;: &quot;2026-09-29T23:26:01.674328+00:00&quot;,</span>
+<span>        &quot;refresh_token&quot;: &quot;vQCxG2tLtjKrFY2JVFHaVRknMlJBjhW3yhLCO3f-mPxzz_cVFmDuki_zTtZNpFKr&quot;,</span>
+<span>        &quot;refresh_expires_in&quot;: 604800,</span>
+<span>        &quot;refresh_expires_at&quot;: &quot;2026-10-06T17:11:01.573407-06:00&quot;,</span>
+<span>        &quot;refresh_endpoint&quot;: &quot;/refresh&quot;,</span>
+<span>        &quot;issuer&quot;: &quot;library-login&quot;,</span>
+<span>        &quot;audience&quot;: &quot;library-api&quot;</span>
+<span>      }</span>
+<span>    },</span>
+<span>    &quot;_links&quot;: {</span>
+<span>      &quot;self&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/session&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;logout&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/logout&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;user&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/users/46&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;captcha&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/captcha&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;profile&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/profile&quot;,</span>
+<span>        &quot;method&quot;: &quot;PATCH&quot;</span>
+<span>      },</span>
+<span>      &quot;extend&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/session/extend&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;refresh&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/refresh&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;verify&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/verify&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      }</span>
+<span>    }</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   POST /refresh responde 200</span>
+<span style='color:#4ade80;'>  [OK]   Emite un access_token distinto</span>
+<span style='color:#4ade80;'>  [OK]   Rota el refresh_token</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  POST /refresh REUTILIZANDO el token ya rotado -&gt; deteccion de reuso</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  POST /refresh?format=json HTTP/1.1</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 85</span>
+<span>  Accept: application/json</span>
+<span>  {</span>
+<span>    &quot;refresh_token&quot;: &quot;iUlFSktQdu52ZXXuYMxAbtE5OOCEqCcEqT6J9IBEy9EPYc50BsQGu0iG6h4m6AGY&quot;</span>
+<span>  }</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 401</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:11:03 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 447</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;status&quot;: &quot;error&quot;,</span>
+<span>    &quot;error&quot;: {</span>
+<span>      &quot;code&quot;: &quot;REFRESH_REUSED&quot;,</span>
+<span>      &quot;message&quot;: &quot;El refresh token ya había sido usado. Por seguridad se revocaron todas las sesiones de la cuenta: vuelve a iniciar sesión.&quot;</span>
+<span>    },</span>
+<span>    &quot;_links&quot;: {</span>
+<span>      &quot;login&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/login&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;register&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/register&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;captcha&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/captcha&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      }</span>
+<span>    }</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   Reuso del refresh token -&gt; 401 REFRESH_REUSED</span>
+<span></span>
+<span style='color:#334155;'>==============================================================================</span>
+<span> 7. ATAQUES CONTRA EL JWT (el servicio de libros los rechaza)</span>
+<span style='color:#334155;'>==============================================================================</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  POST /books con token alg=none (sin firma) -&gt; debe rechazarse</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  POST /books HTTP/1.1</span>
+<span style='color:#7dd3fc;'>  Authorization: Bearer eyJhbGciOiJub25lIiwidHlwIjoiSldUI  ...[JWT truncado para el log]...5cCI6ImFjY2VzcyJ9.</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 111</span>
+<span>  Accept: application/json</span>
+<span>  {</span>
+<span>    &quot;isbn&quot;: &quot;ATAQUE-NONE&quot;,</span>
+<span>    &quot;title&quot;: &quot;x&quot;,</span>
+<span>    &quot;publication_year&quot;: 2026,</span>
+<span>    &quot;price&quot;: 1.0,</span>
+<span>    &quot;format_id&quot;: 7,</span>
+<span>    &quot;category_id&quot;: 8</span>
+<span>  }</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 401</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:11:06 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 458</span>
+<span>  WWW-Authenticate: Bearer realm=&quot;library-books&quot;, error=&quot;ALGORITHM_NONE_REJECTED&quot;, error_description=&quot;El token declara alg=none (sin firma): se rechaza por politica.&quot;</span>
+<span>  X-Auth-Scheme: JWT HS256</span>
+<span>  X-Public-Methods: GET, HEAD, OPTIONS</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Access-Control-Expose-Headers: WWW-Authenticate</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;_links&quot;: {</span>
+<span>      &quot;captcha&quot;: {</span>
+<span>        &quot;href&quot;: &quot;http://localhost:5000/captcha&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;login&quot;: {</span>
+<span>        &quot;href&quot;: &quot;http://localhost:5000/login&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;public_catalog&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/books&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;refresh&quot;: {</span>
+<span>        &quot;href&quot;: &quot;http://localhost:5000/refresh&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      }</span>
+<span>    },</span>
+<span>    &quot;code&quot;: &quot;ALGORITHM_NONE_REJECTED&quot;,</span>
+<span>    &quot;error&quot;: &quot;El token declara alg=none (sin firma): se rechaza por politica.&quot;,</span>
+<span style='color:#7dd3fc;'>    &quot;hint&quot;: &quot;Envía el encabezado &#x27;Authorization: Bearer &lt;access_token&gt;&#x27;.&quot;,</span>
+<span>    &quot;status_code&quot;: 401</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   alg=none rechazado (ALGORITHM_NONE_REJECTED)</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  POST /books con token firmado con OTRO secreto -&gt; firma invalida</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  POST /books HTTP/1.1</span>
+<span style='color:#7dd3fc;'>  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]..._dmJI26Wra1nZZGK-8</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 112</span>
+<span>  Accept: application/json</span>
+<span>  {</span>
+<span>    &quot;isbn&quot;: &quot;ATAQUE-FIRMA&quot;,</span>
+<span>    &quot;title&quot;: &quot;x&quot;,</span>
+<span>    &quot;publication_year&quot;: 2026,</span>
+<span>    &quot;price&quot;: 1.0,</span>
+<span>    &quot;format_id&quot;: 7,</span>
+<span>    &quot;category_id&quot;: 8</span>
+<span>  }</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 401</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:11:08 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 421</span>
+<span>  WWW-Authenticate: Bearer realm=&quot;library-books&quot;, error=&quot;INVALID_SIGNATURE&quot;, error_description=&quot;La firma del token no es valida.&quot;</span>
+<span>  X-Auth-Scheme: JWT HS256</span>
+<span>  X-Public-Methods: GET, HEAD, OPTIONS</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Access-Control-Expose-Headers: WWW-Authenticate</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;_links&quot;: {</span>
+<span>      &quot;captcha&quot;: {</span>
+<span>        &quot;href&quot;: &quot;http://localhost:5000/captcha&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;login&quot;: {</span>
+<span>        &quot;href&quot;: &quot;http://localhost:5000/login&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;public_catalog&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/books&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;refresh&quot;: {</span>
+<span>        &quot;href&quot;: &quot;http://localhost:5000/refresh&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      }</span>
+<span>    },</span>
+<span>    &quot;code&quot;: &quot;INVALID_SIGNATURE&quot;,</span>
+<span>    &quot;error&quot;: &quot;La firma del token no es valida.&quot;,</span>
+<span style='color:#7dd3fc;'>    &quot;hint&quot;: &quot;Envía el encabezado &#x27;Authorization: Bearer &lt;access_token&gt;&#x27;.&quot;,</span>
+<span>    &quot;status_code&quot;: 401</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   Firma ajena rechazada (INVALID_SIGNATURE)</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  POST /books con token EXPIRADO (firmado correctamente) -&gt; debe rechazarse</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  POST /books HTTP/1.1</span>
+<span style='color:#7dd3fc;'>  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...05xyy9Z1TBPwHX9BC0</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 110</span>
+<span>  Accept: application/json</span>
+<span>  {</span>
+<span>    &quot;isbn&quot;: &quot;ATAQUE-EXP&quot;,</span>
+<span>    &quot;title&quot;: &quot;x&quot;,</span>
+<span>    &quot;publication_year&quot;: 2026,</span>
+<span>    &quot;price&quot;: 1.0,</span>
+<span>    &quot;format_id&quot;: 7,</span>
+<span>    &quot;category_id&quot;: 8</span>
+<span>  }</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 401</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:11:10 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 457</span>
+<span>  WWW-Authenticate: Bearer realm=&quot;library-books&quot;, error=&quot;TOKEN_EXPIRED&quot;, error_description=&quot;El access token expiro. Renueva con POST /refresh del servicio de login.&quot;</span>
+<span>  X-Auth-Scheme: JWT HS256</span>
+<span>  X-Public-Methods: GET, HEAD, OPTIONS</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Access-Control-Expose-Headers: WWW-Authenticate</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;_links&quot;: {</span>
+<span>      &quot;captcha&quot;: {</span>
+<span>        &quot;href&quot;: &quot;http://localhost:5000/captcha&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;login&quot;: {</span>
+<span>        &quot;href&quot;: &quot;http://localhost:5000/login&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;public_catalog&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/books&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;refresh&quot;: {</span>
+<span>        &quot;href&quot;: &quot;http://localhost:5000/refresh&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      }</span>
+<span>    },</span>
+<span>    &quot;code&quot;: &quot;TOKEN_EXPIRED&quot;,</span>
+<span>    &quot;error&quot;: &quot;El access token expiro. Renueva con POST /refresh del servicio de login.&quot;,</span>
+<span style='color:#7dd3fc;'>    &quot;hint&quot;: &quot;Envía el encabezado &#x27;Authorization: Bearer &lt;access_token&gt;&#x27;.&quot;,</span>
+<span>    &quot;status_code&quot;: 401</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   Token expirado rechazado (TOKEN_EXPIRED)</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  POST /books con token de OTRA audiencia -&gt; debe rechazarse</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  POST /books HTTP/1.1</span>
+<span style='color:#7dd3fc;'>  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...lVFK-6V2TJBExepW5g</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 110</span>
+<span>  Accept: application/json</span>
+<span>  {</span>
+<span>    &quot;isbn&quot;: &quot;ATAQUE-AUD&quot;,</span>
+<span>    &quot;title&quot;: &quot;x&quot;,</span>
+<span>    &quot;publication_year&quot;: 2026,</span>
+<span>    &quot;price&quot;: 1.0,</span>
+<span>    &quot;format_id&quot;: 7,</span>
+<span>    &quot;category_id&quot;: 8</span>
+<span>  }</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 401</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:11:12 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 442</span>
+<span>  WWW-Authenticate: Bearer realm=&quot;library-books&quot;, error=&quot;INVALID_AUDIENCE&quot;, error_description=&quot;El token no esta dirigido a esta API (aud inesperado).&quot;</span>
+<span>  X-Auth-Scheme: JWT HS256</span>
+<span>  X-Public-Methods: GET, HEAD, OPTIONS</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Access-Control-Expose-Headers: WWW-Authenticate</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;_links&quot;: {</span>
+<span>      &quot;captcha&quot;: {</span>
+<span>        &quot;href&quot;: &quot;http://localhost:5000/captcha&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;login&quot;: {</span>
+<span>        &quot;href&quot;: &quot;http://localhost:5000/login&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;public_catalog&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/books&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;refresh&quot;: {</span>
+<span>        &quot;href&quot;: &quot;http://localhost:5000/refresh&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      }</span>
+<span>    },</span>
+<span>    &quot;code&quot;: &quot;INVALID_AUDIENCE&quot;,</span>
+<span>    &quot;error&quot;: &quot;El token no esta dirigido a esta API (aud inesperado).&quot;,</span>
+<span style='color:#7dd3fc;'>    &quot;hint&quot;: &quot;Envía el encabezado &#x27;Authorization: Bearer &lt;access_token&gt;&#x27;.&quot;,</span>
+<span>    &quot;status_code&quot;: 401</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   Audiencia ajena rechazada (INVALID_AUDIENCE)</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  GET /books con token basura -&gt; sigue siendo PUBLICO y responde 200 (el token no se exige para leer)</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  GET /books?format=json HTTP/1.1</span>
+<span style='color:#7dd3fc;'>  Authorization: Bearer basura.invalida.token</span>
+<span>  Accept: application/json</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 200</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:11:14 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 4386</span>
+<span>  X-Auth-Scheme: JWT HS256</span>
+<span>  X-Public-Methods: GET, HEAD, OPTIONS</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Access-Control-Expose-Headers: WWW-Authenticate</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;books&quot;: [</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Martin Kleppmann&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;Sistemas Distribuidos&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Físico Tapa Dura&quot;,</span>
+<span>        &quot;genres&quot;: &quot;Manual Técnico de Referencia, Patrones y Mejores Prácticas&quot;,</span>
+<span>        &quot;id&quot;: 1,</span>
+<span>        &quot;isbn&quot;: &quot;978-1491973042&quot;,</span>
+<span>        &quot;price&quot;: 45.0,</span>
+<span>        &quot;publication_year&quot;: 2017,</span>
+<span>        &quot;stock&quot;: 15,</span>
+<span>        &quot;title&quot;: &quot;Designing Data-Intensive Applications&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Robert C. Martin&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;Arquitectura de Software&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1532012164546-f432f2e3777a?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Físico Tapa Blanda&quot;,</span>
+<span>        &quot;genres&quot;: &quot;Patrones y Mejores Prácticas&quot;,</span>
+<span>        &quot;id&quot;: 2,</span>
+<span>        &quot;isbn&quot;: &quot;978-0134494166&quot;,</span>
+<span>        &quot;price&quot;: 39.99,</span>
+<span>        &quot;publication_year&quot;: 2017,</span>
+<span>        &quot;stock&quot;: 20,</span>
+<span>        &quot;title&quot;: &quot;Clean Architecture: A Craftsman Guide&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Sam Newman&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;Arquitectura de Software&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Físico Tapa Dura&quot;,</span>
+<span>        &quot;genres&quot;: &quot;Manual Técnico de Referencia, Patrones y Mejores Prácticas&quot;,</span>
+<span>        &quot;id&quot;: 3,</span>
+<span>        &quot;isbn&quot;: &quot;978-1491950357&quot;,</span>
+<span>        &quot;price&quot;: 49.5,</span>
+<span>        &quot;publication_year&quot;: 2021,</span>
+<span>        &quot;stock&quot;: 12,</span>
+<span>        &quot;title&quot;: &quot;Building Microservices: Designing Fine-Grained Systems&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Robert C. Martin&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;Arquitectura de Software&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Físico Tapa Blanda&quot;,</span>
+<span>        &quot;genres&quot;: &quot;Patrones y Mejores Prácticas&quot;,</span>
+<span>        &quot;id&quot;: 4,</span>
+<span>        &quot;isbn&quot;: &quot;978-0132350884&quot;,</span>
+<span>        &quot;price&quot;: 42.0,</span>
+<span>        &quot;publication_year&quot;: 2008,</span>
+<span>        &quot;stock&quot;: 25,</span>
+<span>        &quot;title&quot;: &quot;Clean Code: A Handbook of Agile Software&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Eric Evans&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;Arquitectura de Software&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Físico Tapa Dura&quot;,</span>
+<span>        &quot;genres&quot;: &quot;Patrones y Mejores Prácticas&quot;,</span>
+<span>        &quot;id&quot;: 5,</span>
+<span>        &quot;isbn&quot;: &quot;978-0321125217&quot;,</span>
+<span>        &quot;price&quot;: 55.0,</span>
+<span>        &quot;publication_year&quot;: 2003,</span>
+<span>        &quot;stock&quot;: 10,</span>
+<span>        &quot;title&quot;: &quot;Domain-Driven Design: Tackling Complexity&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Kelsey Hightower&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;Cloud Computing&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1667372393119-3d4c48d07fc9?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Digital PDF&quot;,</span>
+<span>        &quot;genres&quot;: &quot;Guía Práctica Paso a Paso&quot;,</span>
+<span>        &quot;id&quot;: 6,</span>
+<span>        &quot;isbn&quot;: &quot;978-1492043782&quot;,</span>
+<span>        &quot;price&quot;: 38.0,</span>
+<span>        &quot;publication_year&quot;: 2022,</span>
+<span>        &quot;stock&quot;: 18,</span>
+<span>        &quot;title&quot;: &quot;Kubernetes: Up and Running&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Sam Newman&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;Cloud Computing&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Digital EPUB&quot;,</span>
+<span>        &quot;genres&quot;: &quot;Patrones y Mejores Prácticas&quot;,</span>
+<span>        &quot;id&quot;: 7,</span>
+<span>        &quot;isbn&quot;: &quot;978-1492056010&quot;,</span>
+<span>        &quot;price&quot;: 44.0,</span>
+<span>        &quot;publication_year&quot;: 2019,</span>
+<span>        &quot;stock&quot;: 16,</span>
+<span>        &quot;title&quot;: &quot;Cloud Native Patterns: Designing Change-Tolerant Software&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Gene Kim&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;DevOps y SRE&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Edición de Bolsillo&quot;,</span>
+<span>        &quot;genres&quot;: &quot;Casos de Estudio Empresariales&quot;,</span>
+<span>        &quot;id&quot;: 8,</span>
+<span>        &quot;isbn&quot;: &quot;978-1950538478&quot;,</span>
+<span>        &quot;price&quot;: 28.0,</span>
+<span>        &quot;publication_year&quot;: 2018,</span>
+<span>        &quot;stock&quot;: 28,</span>
+<span>        &quot;title&quot;: &quot;The Phoenix Project: A Novel about IT and DevOps&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Andrew S. Tanenbaum&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;Redes y Comunicaciones&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Físico Tapa Dura&quot;,</span>
+<span>        &quot;genres&quot;: &quot;Libro de Texto Universitario&quot;,</span>
+<span>        &quot;id&quot;: 9,</span>
+<span>        &quot;isbn&quot;: &quot;978-0133492606&quot;,</span>
+<span>        &quot;price&quot;: 85.0,</span>
+<span>        &quot;publication_year&quot;: 2010,</span>
+<span>        &quot;stock&quot;: 4,</span>
+<span>        &quot;title&quot;: &quot;Computer Networks (5th Edition)&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Andrew S. Tanenbaum&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;Redes y Comunicaciones&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Físico Tapa Dura&quot;,</span>
+<span>        &quot;genres&quot;: &quot;Libro de Texto Universitario&quot;,</span>
+<span>        &quot;id&quot;: 10,</span>
+<span>        &quot;isbn&quot;: &quot;978-0134092669&quot;,</span>
+<span>        &quot;price&quot;: 78.0,</span>
+<span>        &quot;publication_year&quot;: 2015,</span>
+<span>        &quot;stock&quot;: 0,</span>
+<span>        &quot;title&quot;: &quot;Operating Systems: Design and Implementation&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Andrew S. Tanenbaum&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;Arquitectura de Software&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Audiolibro M4B&quot;,</span>
+<span>        &quot;genres&quot;: &quot;General&quot;,</span>
+<span>        &quot;id&quot;: 48,</span>
+<span>        &quot;isbn&quot;: &quot;PRUEBA-JWT-613504&quot;,</span>
+<span>        &quot;price&quot;: 650.0,</span>
+<span>        &quot;publication_year&quot;: 2026,</span>
+<span>        &quot;stock&quot;: 11,</span>
+<span>        &quot;title&quot;: &quot;PRUEBA JWT - 613504 (PUT completo)&quot;</span>
+<span>      },</span>
+<span>      {</span>
+<span>        &quot;authors&quot;: &quot;Sin autor&quot;,</span>
+<span>        &quot;category_name&quot;: &quot;Arquitectura de Software&quot;,</span>
+<span>        &quot;cover_image&quot;: &quot;https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&quot;,</span>
+<span>        &quot;format_name&quot;: &quot;Audiolibro M4B&quot;,</span>
+<span>        &quot;genres&quot;: &quot;General&quot;,</span>
+<span>        &quot;id&quot;: 49,</span>
+<span>        &quot;isbn&quot;: &quot;PRUEBA-ALIAS-613504&quot;,</span>
+<span>        &quot;price&quot;: 199.0,</span>
+<span>        &quot;publication_year&quot;: 2026,</span>
+<span>        &quot;stock&quot;: 3,</span>
+<span>        &quot;title&quot;: &quot;PRUEBA JWT - ALIAS /api/book/insert&quot;</span>
+<span>      }</span>
+<span>    ],</span>
+<span>    &quot;count&quot;: 12</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   La lectura publica no depende del token</span>
+<span></span>
+<span style='color:#334155;'>==============================================================================</span>
+<span> 8. LIMPIEZA Y CIERRE DE SESION</span>
+<span style='color:#334155;'>==============================================================================</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  DELETE /books/{isbn} CON token -&gt; 200 (limpieza del alias)</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  DELETE /books/PRUEBA-ALIAS-613504 HTTP/1.1</span>
+<span style='color:#7dd3fc;'>  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...f9BDTp8q4hfJ550chc</span>
+<span>  Accept: application/json</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 200</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:11:16 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 119</span>
+<span>  X-Auth-Scheme: JWT HS256</span>
+<span>  X-Public-Methods: GET, HEAD, OPTIONS</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Access-Control-Expose-Headers: WWW-Authenticate</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;isbn&quot;: &quot;PRUEBA-ALIAS-613504&quot;,</span>
+<span>    &quot;message&quot;: &quot;Libro eliminado correctamente&quot;,</span>
+<span>    &quot;title&quot;: &quot;PRUEBA JWT - ALIAS /api/book/insert&quot;</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   DELETE con token responde 200</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  DELETE /books/{isbn} CON token -&gt; 200</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  DELETE /books/PRUEBA-JWT-613504 HTTP/1.1</span>
+<span style='color:#7dd3fc;'>  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...f9BDTp8q4hfJ550chc</span>
+<span>  Accept: application/json</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 200</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:11:18 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 116</span>
+<span>  X-Auth-Scheme: JWT HS256</span>
+<span>  X-Public-Methods: GET, HEAD, OPTIONS</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Access-Control-Expose-Headers: WWW-Authenticate</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;isbn&quot;: &quot;PRUEBA-JWT-613504&quot;,</span>
+<span>    &quot;message&quot;: &quot;Libro eliminado correctamente&quot;,</span>
+<span>    &quot;title&quot;: &quot;PRUEBA JWT - 613504 (PUT completo)&quot;</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   DELETE del libro principal responde 200</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  DELETE /books/{isbn} SIN token -&gt; 401</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  DELETE /books/PRUEBA-JWT-613504 HTTP/1.1</span>
+<span>  Accept: application/json</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 401</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:11:20 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 522</span>
+<span style='color:#7dd3fc;'>  WWW-Authenticate: Bearer realm=&quot;library-books&quot;, error=&quot;TOKEN_REQUIRED&quot;, error_description=&quot;Esta operación modifica el catálogo y requiere autenticación. Falta el encabezado &#x27;Authorization: Bearer &lt;access_token&gt;&#x27;.&quot;</span>
+<span>  X-Auth-Scheme: JWT HS256</span>
+<span>  X-Public-Methods: GET, HEAD, OPTIONS</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Access-Control-Expose-Headers: WWW-Authenticate</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;_links&quot;: {</span>
+<span>      &quot;captcha&quot;: {</span>
+<span>        &quot;href&quot;: &quot;http://localhost:5000/captcha&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;login&quot;: {</span>
+<span>        &quot;href&quot;: &quot;http://localhost:5000/login&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;public_catalog&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/books&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      },</span>
+<span>      &quot;refresh&quot;: {</span>
+<span>        &quot;href&quot;: &quot;http://localhost:5000/refresh&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      }</span>
+<span>    },</span>
+<span>    &quot;code&quot;: &quot;TOKEN_REQUIRED&quot;,</span>
+<span style='color:#7dd3fc;'>    &quot;error&quot;: &quot;Esta operación modifica el catálogo y requiere autenticación. Falta el encabezado &#x27;Authorization: Bearer &lt;access_token&gt;&#x27;.&quot;,</span>
+<span style='color:#7dd3fc;'>    &quot;hint&quot;: &quot;Envía el encabezado &#x27;Authorization: Bearer &lt;access_token&gt;&#x27;.&quot;,</span>
+<span>    &quot;status_code&quot;: 401</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   DELETE sin token responde 401</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  POST /logout -&gt; revoca la sesion del JWT</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  POST /logout?format=json HTTP/1.1</span>
+<span style='color:#7dd3fc;'>  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...f9BDTp8q4hfJ550chc</span>
+<span>  Accept: application/json</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 200</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:11:22 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 642</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;status&quot;: &quot;success&quot;,</span>
+<span>    &quot;message&quot;: &quot;Sesión cerrada correctamente.&quot;,</span>
+<span>    &quot;data&quot;: {</span>
+<span>      &quot;revoked&quot;: true,</span>
+<span>      &quot;sessions_revoked&quot;: 0,</span>
+<span>      &quot;note&quot;: &quot;El access token es un JWT sin estado: este servicio lo rechaza de inmediato (revocación en user_sessions), mientras que el servicio de libros lo aceptará como máximo hasta su expiración natural (JWT_ACCESS_MINUTES). Es el precio de no compartir estado.&quot;</span>
+<span>    },</span>
+<span>    &quot;_links&quot;: {</span>
+<span>      &quot;login&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/login&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;register&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/register&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;captcha&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/captcha&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      }</span>
+<span>    }</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   Logout 200</span>
+<span></span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  GET /session con el token ya revocado -&gt; 401</span>
+<span style='color:#334155;'>------------------------------------------------------------------------------</span>
+<span>  &gt;&gt;&gt; PETICION</span>
+<span>  GET /session?format=json HTTP/1.1</span>
+<span style='color:#7dd3fc;'>  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV  ...[JWT truncado para el log]...f9BDTp8q4hfJ550chc</span>
+<span>  Accept: application/json</span>
+<span></span>
+<span style='color:#fbbf24;'>  &lt;&lt;&lt; RESPUESTA  HTTP 401</span>
+<span>  Server: Werkzeug/3.1.8 Python/3.13.14</span>
+<span>  Date: Tue, 29 Sep 2026 23:11:25 GMT</span>
+<span>  Content-Type: application/json</span>
+<span>  Content-Length: 347</span>
+<span>  Access-Control-Allow-Origin: *</span>
+<span>  Connection: close</span>
+<span>  {</span>
+<span>    &quot;status&quot;: &quot;error&quot;,</span>
+<span>    &quot;error&quot;: {</span>
+<span>      &quot;code&quot;: &quot;SESSION_INVALID&quot;,</span>
+<span>      &quot;message&quot;: &quot;La sesión fue cerrada.&quot;</span>
+<span>    },</span>
+<span>    &quot;_links&quot;: {</span>
+<span>      &quot;login&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/login&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;register&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/register&quot;,</span>
+<span>        &quot;method&quot;: &quot;POST&quot;</span>
+<span>      },</span>
+<span>      &quot;captcha&quot;: {</span>
+<span>        &quot;href&quot;: &quot;/captcha&quot;,</span>
+<span>        &quot;method&quot;: &quot;GET&quot;</span>
+<span>      }</span>
+<span>    }</span>
+<span>  }</span>
+<span style='color:#4ade80;'>  [OK]   Tras el logout el token es rechazado por el servicio de login</span>
+<span></span>
+<span style='color:#334155;'>==============================================================================</span>
+<span> RESULTADO</span>
+<span style='color:#334155;'>==============================================================================</span>
+<span> Aserciones correctas : 41</span>
+<span> Aserciones fallidas  : 0</span>
+<span></span>
+<span> Intercambios HTTP registrados: 28</span></pre>
+    </div>
+    </div></body></html>

@@ -1,0 +1,22 @@
+{
+  "_comentario": [
+    "PLANTILLA de configuracion del cliente. Es solo documentacion versionable:",
+    "la aplicacion NO lee este archivo, lee runtime/config.json (excluido en",
+    ".gitignore porque puede contener direcciones propias de cada estudiante).",
+    "Copia estos valores editando la pantalla 'Configuracion del servidor' o",
+    "creando runtime/config.json con esta misma forma."
+  ],
+
+  "login_base_url": "http://127.0.0.1:5000",
+  "books_base_url": "http://127.0.0.1:5001",
+
+  "remote_host": "34.51.29.27",
+  "remote_login_port": 5000,
+  "remote_books_port": 5001,
+
+  "request_timeout": 8.0,
+  "health_interval_seconds": 30,
+  "session_warning_seconds": 300,
+  "page_size": 12,
+  "remember_credentials": true
+}

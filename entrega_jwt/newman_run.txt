@@ -1,0 +1,215 @@
+newman
+
+Librería en línea · JWT (UDEM SC-2236 · 613504)
+
+□ 00 · La trampa: la misma ruta, dos autorizaciones distintas
+└ GET /books  (público, sin token) -> 200
+  GET http://172.32.132.174:5001/books?format=json [200 OK, 4.04kB, 247ms]
+  √  GET /books responde 200 SIN token (catálogo público)
+  √  La respuesta anuncia los métodos públicos
+  √  El catálogo trae libros
+
+└ POST /books  (protegido, SIN token) -> 401
+  POST http://172.32.132.174:5001/books [401 UNAUTHORIZED, 1.06kB, 9ms]
+  √  POST /books SIN token responde 401 Unauthorized
+  √  Trae el encabezado WWW-Authenticate: Bearer
+  √  El código de error es TOKEN_REQUIRED
+
+└ POST /api/book/insert  (ALIAS, SIN token) -> 401
+  POST http://172.32.132.174:5001/api/book/insert [401 UNAUTHORIZED, 1.06kB, 8ms]
+  √  El alias de escritura tampoco es una puerta trasera: 401
+
+□ 01 · Obtener el JWT (captcha -> registro -> login)
+└ GET /captcha  (público)
+  GET http://172.32.132.174:5000/captcha?format=json [200 OK, 673B, 8ms]
+  √  El servicio entrega un desafío CAPTCHA
+  ┌
+  │ 'Desafío: ¿Cuánto es 8 - 5? -> respuesta 3'
+  └
+
+└ POST /register  (alta del usuario de prueba)
+  POST http://172.32.132.174:5000/register?format=json [409 CONFLICT, 564B, 608ms]
+  √  Registro 201 Created (o 409 si el usuario demo ya existía)
+
+└ GET /captcha  (nuevo desafío para el login)
+  GET http://172.32.132.174:5000/captcha?format=json [200 OK, 673B, 8ms]
+  ┌
+  │ 'Nuevo desafío: ¿Cuánto es 9 + 5? -> 14'
+  └
+
+└ POST /login  -> aquí nace el JWT
+  POST http://172.32.132.174:5000/login?format=json [200 OK, 2.48kB, 799ms]
+  √  Login 200 OK
+  √  Devuelve un access_token con formato JWT (3 segmentos)
+  √  El esquema es Bearer y el algoritmo HS256
+  √  El access token dura 15 minutos y el refresh 7 días
+  √  El refresh_token es distinto del access_token
+  ┌
+  │ `Using "CryptoJS" is deprecated. Use "require('crypto-
+  │ js')" instead.`
+  │ 'JWT claims: {"aud":"library-api","email":"postman.jwt
+  │ .613504@udem.mx","exp":1790724162,"iat":1790723262,"is
+  │ s":"library-login","jti":"f510c685-4c47-46a9-962d-5eb2
+  │ 30128c49","name":"Postman JWT","nbf":1790723262,"role"
+  │ :"Usuario","sid":42,"sub":"41","typ":"access"}'
+  └
+  √  Los claims del RFC 7519 están presentes
+
+□ 02 · Catálogo público (sin token)
+└ GET /books  (sin token) -> 200
+  GET http://172.32.132.174:5001/books?format=json [200 OK, 4.04kB, 111ms]
+  √  Lectura pública del catálogo: 200
+
+└ GET /books/{{isbn}}  (sin token) -> 200
+  GET http://172.32.132.174:5001/books/?format=json [200 OK, 4.04kB, 140ms]
+  √  Detalle por ISBN sin token: 200 (misma ruta que el PUT protegido)
+
+□ 03 · Escrituras protegidas (Authorization: Bearer)
+└ POST /books  (con Bearer) -> 201
+  POST http://172.32.132.174:5001/books [201 CREATED, 450B, 233ms]
+  √  Alta con JWT válido: 201 Created
+  ┌
+  │ 'ISBN guardado en {{isbn}}: POSTMAN-JWT-613504'
+  └
+
+└ PUT /books/{{isbn}}  (con Bearer) -> 200
+  PUT http://172.32.132.174:5001/books/POSTMAN-JWT-613504 [200 OK, 385B, 102ms]
+  √  PUT con Bearer: 200
+
+└ PATCH /books/{{isbn}}  (con Bearer) -> 200
+  PATCH http://172.32.132.174:5001/books/POSTMAN-JWT-613504 [200 OK, 420B, 94ms]
+  √  PATCH parcial con Bearer: 200
+
+└ POST /api/book/insert  (alias, con Bearer) -> 201
+  POST http://172.32.132.174:5001/api/book/insert [201 CREATED, 460B, 124ms]
+  √  El alias de escritura acepta el mismo JWT: 201
+
+└ DELETE /books/{{isbn_alias}}  (alias, con Bearer) -> 200
+  DELETE http://172.32.132.174:5001/books/POSTMAN-ALIAS-613504 [200 OK, 442B, 129ms]
+  √  Baja por alias con Bearer: 200
+
+└ POST /api/book/delete/{{isbn}}  (alias POST de borrado) -> 200
+  POST http://172.32.132.174:5001/api/book/delete/POSTMAN-JWT-613504 [200 OK, 430B, 133ms]
+  √  Un POST que borra también exige token (la protección es por método, no por ruta)
+
+□ 04 · Sesión, introspección y refresh token
+└ GET /session  (con Bearer) -> valida el token
+  GET http://172.32.132.174:5000/session?format=json [200 OK, 1.53kB, 168ms]
+  √  El servicio de login acepta el JWT: 200
+  √  Informa que la credencial usada es un JWT
+
+└ POST /verify  (introspección stateless) -> 200
+  POST http://172.32.132.174:5000/verify?format=json [200 OK, 893B, 8ms]
+  √  El token es válido
+
+└ POST /refresh  (rota el refresh token) -> 200
+  POST http://172.32.132.174:5000/refresh?format=json [200 OK, 2.49kB, 233ms]
+  √  El refresh entrega un access_token nuevo
+  √  Y rota el refresh_token (el anterior queda quemado)
+
+└ POST /refresh  (REUTILIZANDO el token rotado) -> 401
+  POST http://172.32.132.174:5000/refresh?format=json [401 UNAUTHORIZED, 656B, 310ms]
+  √  Reutilizar un refresh token ya rotado: 401
+  √  El código lo identifica como reuso (REFRESH_REUSED)
+
+└ POST /logout  (revoca la sesión)
+  POST http://172.32.132.174:5000/logout?format=json [200 OK, 841B, 161ms]
+  √  Logout 200
+
+└ GET /session  (con el token revocado) -> 401
+  GET http://172.32.132.174:5000/session?format=json [401 UNAUTHORIZED, 556B, 73ms]
+  √  Tras el logout el JWT ya no sirve: 401
+
+□ 05 · Ataques contra el JWT (deben fallar)
+└ alg:none  (token sin firma) -> 401
+  ┌
+  │ `Using "CryptoJS" is deprecated. Use "require('crypto-
+  │ js')" instead.`
+  └
+  POST http://172.32.132.174:5001/books [401 UNAUTHORIZED, 946B, 5ms]
+  √  El token con alg:none se rechaza: 401
+  ┌
+  │ 'Código de rechazo: ALGORITHM_NONE_REJECTED'
+  └
+  √  Se identifica el ataque (ALGORITHM_NONE_REJECTED)
+
+└ Firma con otro secreto -> 401
+  ┌
+  │ `Using "CryptoJS" is deprecated. Use "require('crypto-
+  │ js')" instead.`
+  └
+  POST http://172.32.132.174:5001/books [401 UNAUTHORIZED, 872B, 6ms]
+  √  Firma inválida: 401
+  ┌
+  │ 'Código de rechazo: INVALID_SIGNATURE'
+  └
+  √  Se detecta la firma manipulada (INVALID_SIGNATURE)
+
+└ Token expirado -> 401
+  ┌
+  │ `Using "CryptoJS" is deprecated. Use "require('crypto-
+  │ js')" instead.`
+  └
+  POST http://172.32.132.174:5001/books [401 UNAUTHORIZED, 944B, 7ms]
+  √  Token expirado: 401
+  ┌
+  │ 'Código de rechazo: TOKEN_EXPIRED'
+  └
+  √  Se detecta la expiración (TOKEN_EXPIRED)
+
+└ Audiencia ajena (aud != library-api) -> 401
+  ┌
+  │ `Using "CryptoJS" is deprecated. Use "require('crypto-
+  │ js')" instead.`
+  └
+  POST http://172.32.132.174:5001/books [401 UNAUTHORIZED, 914B, 8ms]
+  √  Token emitido para otra audiencia: 401
+  ┌
+  │ 'Código de rechazo: INVALID_AUDIENCE'
+  └
+  √  Se detecta la audiencia incorrecta (INVALID_AUDIENCE)
+
+└ GET /books con token basura -> 200 (sigue siendo público)
+  ┌
+  │ `Using "CryptoJS" is deprecated. Use "require('crypto-
+  │ js')" instead.`
+  └
+  GET http://172.32.132.174:5001/books?format=json [200 OK, 4.04kB, 86ms]
+  √  Un token inválido NO rompe la lectura pública: 200
+
+□ 06 · Salud e instancia
+└ GET /health  · login
+  GET http://172.32.132.174:5000/health?format=json [200 OK, 1.01kB, 146ms]
+  √  Servicio de login operativo
+  ┌
+  │ 'Huella del secreto (login): 998b858a0b50'
+  └
+  √  Reporta el bloque JWT
+
+└ GET /health  · libros
+  GET http://172.32.132.174:5001/health [200 OK, 624B, 74ms]
+  √  Servicio de libros operativo
+  ┌
+  │ 'Huella del secreto (libros): 998b858a0b50'
+  └
+  √  Declara los métodos públicos y la misma huella de secreto
+
+┌─────────────────────────┬────────────────────┬───────────────────┐
+│                         │           executed │            failed │
+├─────────────────────────┼────────────────────┼───────────────────┤
+│              iterations │                  1 │                 0 │
+├─────────────────────────┼────────────────────┼───────────────────┤
+│                requests │                 28 │                 0 │
+├─────────────────────────┼────────────────────┼───────────────────┤
+│            test-scripts │                 28 │                 0 │
+├─────────────────────────┼────────────────────┼───────────────────┤
+│      prerequest-scripts │                  5 │                 0 │
+├─────────────────────────┼────────────────────┼───────────────────┤
+│              assertions │                 45 │                 0 │
+├─────────────────────────┴────────────────────┴───────────────────┤
+│ total run duration: 6.5s                                         │
+├──────────────────────────────────────────────────────────────────┤
+│ total data received: 28.88kB (approx)                            │
+├──────────────────────────────────────────────────────────────────┤
+│ average response time: 144ms [min: 5ms, max: 799ms, s.d.: 177ms] │
+└──────────────────────────────────────────────────────────────────┘

@@ -5,14 +5,44 @@ TECNOLOGÍAS: Python 3, Flask, Psycopg v3 (psycopg), Flasgger (OpenAPI/Swagger)
 AUTOR: Fabián Azaed Orta Singlaterry (Matrícula: 613504)
 UNIVERSIDAD DE MONTERREY (UDEM) - SC-2236
 ==============================================================================
+
+SEGURIDAD (nuevo requerimiento): autorización por JWT
+-----------------------------------------------------
+El servicio queda con un modelo MIXTO, decidido por el MÉTODO HTTP y no por la
+ruta:
+
+    PÚBLICO   (sin token) -> GET  /books            catálogo completo
+                             GET  /books/{isbn}     detalle de un libro
+                             GET  /books/search     búsqueda
+                             GET  /books/temas      temas
+                             GET  /catalogs         listas de apoyo
+                             GET  /health, GET /, /docs
+
+    PROTEGIDO (Bearer)    -> POST   /books
+                             PUT    /books/{isbn}
+                             PATCH  /books/{isbn}
+                             DELETE /books/{isbn}
+                             (+ sus alias /api/book/insert, /api/book/update,
+                                /api/book/patch, /api/book/delete)
+
+Nota clave: `/books` y `/books/{isbn}` son LA MISMA ruta para lectura y para
+escritura. Por eso una lista de rutas públicas no sirve: hay que autorizar por
+verbo. El guardián implementado abajo aplica la regla "los métodos seguros
+(GET/HEAD/OPTIONS) son públicos; todo lo demás exige un JWT válido", de modo que
+ningún alias de escritura pueda quedar sin cubrir por descuido.
+
+La validación del token es SIN ESTADO: firma + exp + iss + aud, sin tocar
+PostgreSQL ni llamar al servicio de login.
+==============================================================================
 """
 
 import os
 import sys
+import hashlib
 from decimal import Decimal
 from datetime import datetime, date
 import xml.etree.ElementTree as ET
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, Response, g
 from flask_cors import CORS
 from flasgger import Swagger
 from dotenv import load_dotenv
@@ -20,13 +50,159 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.errors import UniqueViolation, ForeignKeyViolation, CheckViolation
 
+# Verificador JWT propio (copia deliberada: ver el encabezado de jwt_auth.py).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import jwt_auth  # noqa: E402
+
 # 1. Cargar variables de entorno desde el archivo .env local
 load_dotenv()
 
 app = Flask(__name__)
 
-# 2. Configurar CORS para permitir invocaciones cross-origin
-CORS(app, resources={r"/*": {"origins": "*"}})
+# 2. Configurar CORS para permitir invocaciones cross-origin.
+#    Se expone WWW-Authenticate para que un cliente de navegador pueda leer el
+#    motivo del 401 (por defecto, las cabeceras no simples se ocultan).
+CORS(app, resources={r"/*": {"origins": "*"}}, expose_headers=["WWW-Authenticate"])
+
+# ==============================================================================
+# 2.b AUTORIZACIÓN POR JWT (nuevo requerimiento)
+# ==============================================================================
+# El secreto se comparte con el microservicio de login por variable de entorno.
+# Este servicio NUNCA emite tokens: solo verifica los que emite el otro.
+JWT_SECRET         = os.getenv("JWT_SECRET", "")
+JWT_ALGORITHM      = os.getenv("JWT_ALGORITHM", "HS256")
+JWT_ISSUER         = os.getenv("JWT_ISSUER", "library-login")
+JWT_AUDIENCE       = os.getenv("JWT_AUDIENCE", "library-api")
+JWT_LEEWAY_SECONDS = int(os.getenv("JWT_LEEWAY_SECONDS", "5"))
+
+# Dirección pública del servicio de login: solo se usa para construir los
+# enlaces de hipermedia que acompañan a un 401 ("¿y ahora qué hago?").
+LOGIN_BASE_URL = os.getenv("LOGIN_BASE_URL", "http://localhost:5000").rstrip("/")
+
+# Métodos que NUNCA modifican estado: son públicos por definición.
+SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+# Escotilla de configuración: rutas (path exacto) que, siendo de escritura, se
+# quieren dejar abiertas. Por defecto VACÍA: todo lo que escribe exige token.
+PUBLIC_UNSAFE_PATHS = {p.strip() for p in os.getenv("PUBLIC_UNSAFE_PATHS", "").split(",") if p.strip()}
+
+if not JWT_SECRET:
+    print("[AVISO] JWT_SECRET no está definido: las escrituras responderán 401.")
+    print("        Debe coincidir EXACTAMENTE con el JWT_SECRET del microservicio de login.")
+
+
+def wants_xml():
+    """El servicio responde JSON por defecto y XML con ?format=xml (convención propia)."""
+    fmt = (request.args.get("format") or "").strip().lower()
+    if fmt:
+        return fmt == "xml"
+    accept = (request.headers.get("Accept") or "").lower()
+    return "xml" in accept and "json" not in accept
+
+
+def error_response(message, code=None, status=400, extra=None):
+    """Respuesta de error en el formato pedido, con el código y el HTTP correctos."""
+    payload = dict(extra or {})
+    payload["error"] = message
+    if code:
+        payload["code"] = code
+    payload["status_code"] = status
+    if wants_xml():
+        resp = Response(serialize_error_to_xml(message, payload), status=status,
+                        mimetype="application/xml")
+    else:
+        resp = jsonify(payload)
+        resp.status_code = status
+    return resp
+
+
+def unauthorized(code, message, status=401):
+    """401/403 con WWW-Authenticate y enlaces al servicio de autenticación.
+
+    El cuerpo del error también lleva hipermedia: le dice al cliente dónde
+    obtener un token o cómo renovarlo, en vez de dejarlo adivinando.
+    """
+    payload = {
+        "error": message,
+        "code": code,
+        "status_code": status,
+        "hint": "Envía el encabezado 'Authorization: Bearer <access_token>'.",
+        "_links": {
+            "login":   {"href": LOGIN_BASE_URL + "/login",   "method": "POST"},
+            "refresh": {"href": LOGIN_BASE_URL + "/refresh", "method": "POST"},
+            "captcha": {"href": LOGIN_BASE_URL + "/captcha", "method": "GET"},
+            "public_catalog": {"href": "/books", "method": "GET"},
+        },
+    }
+    if wants_xml():
+        resp = Response(serialize_error_to_xml(message, payload), status=status,
+                        mimetype="application/xml")
+    else:
+        resp = jsonify(payload)
+        resp.status_code = status
+    resp.headers["WWW-Authenticate"] = (
+        'Bearer realm="library-books", error="%s", error_description="%s"'
+        % (code, message.replace('"', "'"))
+    )
+    return resp
+
+
+def bearer_token():
+    """Extrae el token de 'Authorization: Bearer' (o del header heredado)."""
+    auth = request.headers.get("Authorization") or ""
+    if auth.lower().startswith("bearer "):
+        return auth[7:].strip()
+    legacy = request.headers.get("X-Session-Token")
+    return legacy.strip() if legacy else None
+
+
+def is_public_request(method, path):
+    """Decide si la petición puede pasar sin token."""
+    if method in SAFE_METHODS:
+        return True
+    return path in PUBLIC_UNSAFE_PATHS
+
+
+@app.before_request
+def enforce_jwt():
+    """Guardián de autorización: público lo que lee, protegido lo que escribe.
+
+    Se ejecuta ANTES de cada endpoint. Al decidir por método HTTP, cubre de una
+    sola vez todos los alias de escritura (/api/book/insert, /api/book/update,
+    /api/book/patch, /api/book/delete) sin tener que enumerarlos.
+    """
+    # El preflight CORS (OPTIONS) nunca lleva Authorization: debe pasar siempre.
+    if request.method == "OPTIONS" or is_public_request(request.method, request.path):
+        return None
+
+    token = bearer_token()
+    if not token:
+        return unauthorized(
+            "TOKEN_REQUIRED",
+            "Esta operación modifica el catálogo y requiere autenticación. "
+            "Falta el encabezado 'Authorization: Bearer <access_token>'.",
+        )
+
+    try:
+        claims = jwt_auth.decode_jwt(
+            token, JWT_SECRET, algorithms=(JWT_ALGORITHM,),
+            issuer=JWT_ISSUER, audience=JWT_AUDIENCE, leeway=JWT_LEEWAY_SECONDS,
+        )
+    except jwt_auth.JWTError as exc:
+        return unauthorized(exc.code, exc.message, exc.status)
+
+    # El token queda disponible para el endpoint (auditoría, trazabilidad).
+    g.jwt_claims = claims
+    return None
+
+
+@app.after_request
+def announce_jwt(response):
+    """Cabeceras informativas de la seguridad activa (útiles para depurar y auditar)."""
+    response.headers["X-Auth-Scheme"] = "JWT %s" % JWT_ALGORITHM
+    response.headers["X-Public-Methods"] = "GET, HEAD, OPTIONS"
+    return response
+
 
 # 3. Configuración de Swagger / OpenAPI
 swagger_config = {
@@ -50,9 +226,12 @@ swagger_template = {
         "title": "Academic Library RESTful Microservice API",
         "description": (
             "Microservicio de backend para la administración y consulta del catálogo bibliográfico "
-            "en arquitectura orientada a servicios (SOA / Microservicios) con base de datos PostgreSQL en 4FN."
+            "en arquitectura orientada a servicios (SOA / Microservicios) con base de datos PostgreSQL en 4FN.\n\n"
+            "**Seguridad (JWT):** las lecturas (GET) son públicas; las escrituras "
+            "(POST, PUT, PATCH, DELETE) exigen `Authorization: Bearer <access_token>` "
+            "con un JWT emitido por el microservicio de login. El token se valida sin estado."
         ),
-        "version": "1.0.0",
+        "version": "1.1.0",
         "contact": {
             "name": "Fabián Azaed Orta Singlaterry",
             "email": "azaedorta@hotmail.com",
@@ -61,9 +240,20 @@ swagger_template = {
     },
     "tags": [
         {"name": "General", "description": "Endpoints de estado y verificación"},
-        {"name": "Books", "description": "Operaciones CRUD y búsqueda avanzada sobre libros y 4FN"}
+        {"name": "Books", "description": "Operaciones CRUD y búsqueda avanzada sobre libros y 4FN"},
+        {"name": "Security", "description": "Esquema de autorización JWT (Bearer) para escrituras"}
     ],
-    "schemes": ["http", "https"]
+    "schemes": ["http", "https"],
+    # Definición de seguridad: Swagger muestra el candado en las operaciones
+    # protegidas y habilita el botón "Authorize".
+    "securityDefinitions": {
+        "BearerJWT": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+            "description": "Escribe: Bearer <access_token>  (JWT emitido por POST /login del servicio de autenticación)"
+        }
+    }
 }
 
 swagger = Swagger(app, config=swagger_config, template=swagger_template)
@@ -310,20 +500,33 @@ def index():
     """
     return jsonify({
         "service": "Academic Library RESTful Microservice",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "Fabián Azaed Orta Singlaterry (613504)",
         "docs_url": "/docs",
-        "endpoints": {
+        "security": {
+            "scheme": "Bearer JWT",
+            "algorithm": JWT_ALGORITHM,
+            "issuer": JWT_ISSUER,
+            "audience": JWT_AUDIENCE,
+            "rule": "Los métodos seguros (GET/HEAD/OPTIONS) son públicos; "
+                    "POST/PUT/PATCH/DELETE exigen 'Authorization: Bearer <access_token>'.",
+            "login_service": LOGIN_BASE_URL,
+        },
+        "public_endpoints": {
             "get_all_books": "GET /books",
             "get_book_by_isbn": "GET /books/<isbn>",
             "get_book_topics": "GET /books/<isbn>/temas",
             "get_all_books_topics": "GET /books/temas",
             "search_books": "GET /books/search?q=...&genre=...&year=...",
+            "catalogs": "GET /catalogs",
+            "health_check": "GET /health",
+        },
+        "protected_endpoints": {
             "create_book": "POST /books",
-            "update_book": "PUT /books/<isbn>",
+            "update_book": "PUT /books/<isbn>   (reemplazo completo)",
+            "patch_book": "PATCH /books/<isbn> (modificación parcial)",
             "delete_book": "DELETE /books/<isbn>",
-            "health_check": "GET /health"
-        }
+        },
     }), 200
 
 @app.route("/health", methods=["GET"])
@@ -348,7 +551,20 @@ def health_check():
                     "status": "healthy",
                     "database": "connected",
                     "db_response": res["status"],
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "jwt": {
+                        "enabled": bool(JWT_SECRET),
+                        "algorithm": JWT_ALGORITHM,
+                        "issuer": JWT_ISSUER,
+                        "audience": JWT_AUDIENCE,
+                        "public_methods": sorted(SAFE_METHODS),
+                        "login_service": LOGIN_BASE_URL,
+                        # Huella del secreto compartido: permite comprobar desde
+                        # fuera que ambos microservicios usan el MISMO secreto,
+                        # sin exponerlo.
+                        "secret_fingerprint": (hashlib.sha256(JWT_SECRET.encode()).hexdigest()[:12]
+                                               if JWT_SECRET else None),
+                    },
                 }), 200
     except Exception as e:
         return jsonify({
@@ -356,6 +572,43 @@ def health_check():
             "database": "disconnected",
             "error": str(e)
         }), 503
+
+@app.route("/catalogs", methods=["GET"])
+@app.route("/catalogs/", methods=["GET"])
+@app.route("/api/catalogs", methods=["GET"])
+def get_catalogs():
+    """
+    Listas de apoyo para formularios: formatos, categorias, autores y generos
+    ---
+    tags:
+      - General
+    produces:
+      - application/json
+    responses:
+      200:
+        description: Identificadores y nombres necesarios para POST y PUT de libros
+      500:
+        description: Error interno del servidor
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, name FROM formats ORDER BY name ASC;")
+                formats = cur.fetchall()
+                cur.execute("SELECT id, name FROM categories ORDER BY name ASC;")
+                categories = cur.fetchall()
+                cur.execute("SELECT id, name FROM authors ORDER BY name ASC;")
+                authors = cur.fetchall()
+                cur.execute("SELECT id, name FROM genres ORDER BY name ASC;")
+                genres = cur.fetchall()
+        return jsonify({
+            "formats": serialize_record(formats),
+            "categories": serialize_record(categories),
+            "authors": serialize_record(authors),
+            "genres": serialize_record(genres)
+        }), 200
+    except Exception as e:
+        return jsonify({"error": "Error al consultar los catalogos de apoyo", "details": str(e)}), 500
 
 # ==============================================================================
 # ENDPOINTS CRUD Y BÚSQUEDA DE LIBROS
@@ -1094,9 +1347,13 @@ def create_book():
                     type: string
                   chapter_page:
                     type: string
+    security:
+      - BearerJWT: []
     responses:
       201:
         description: Libro creado exitosamente
+      401:
+        description: Falta el token, la firma es inválida o el token expiró
       400:
         description: Datos de entrada inválidos o faltantes
       409:
@@ -1235,6 +1492,7 @@ def update_book(isbn):
       - in: body
         name: body
         required: true
+        description: Representación COMPLETA del libro (PUT). Si falta algún campo editable responde 400.
         schema:
           type: object
           properties:
@@ -1258,9 +1516,13 @@ def update_book(isbn):
               type: array
               items:
                 type: integer
+    security:
+      - BearerJWT: []
     responses:
       200:
         description: Libro actualizado correctamente
+      401:
+        description: Falta el token, la firma es inválida o el token expiró
       404:
         description: Libro no encontrado
       400:
@@ -1271,6 +1533,24 @@ def update_book(isbn):
     data = request.get_json()
     if not data:
         return jsonify({"error": "Cuerpo de solicitud JSON requerido"}), 400
+
+    # PUT = reemplazo COMPLETO de la representación editable.
+    # El cliente debe enviar todos los campos editables del libro; si falta
+    # alguno se responde 400 en lugar de dejar el libro a medias.
+    # Para cambios de un solo campo existe PATCH /books/<isbn>.
+    #
+    # NOTA: la validación se aplica solo al verbo PUT. El alias heredado
+    # /api/book/update/<isbn> aceptado por POST conserva el comportamiento
+    # parcial anterior para no romper clientes ya desplegados.
+    if request.method == "PUT":
+        required_fields = ["title", "publication_year", "price", "stock", "format_id", "category_id"]
+        missing = [f for f in required_fields if f not in data or data[f] is None]
+        if missing:
+            return jsonify({
+                "error": "PUT requiere la representación completa del libro",
+                "missing_fields": missing,
+                "hint": "Para modificar solo algunos atributos use PATCH /books/<isbn>"
+            }), 400
 
     try:
         with get_db_connection() as conn:
@@ -1335,6 +1615,146 @@ def update_book(isbn):
     except Exception as e:
         return jsonify({"error": "Error al actualizar el libro", "details": str(e)}), 500
 
+@app.route("/books/<string:isbn>", methods=["PATCH"])
+@app.route("/api/book/patch/<string:isbn>", methods=["PATCH"])
+def patch_book(isbn):
+    """
+    Modificar PARCIALMENTE un libro: solo los atributos enviados en el cuerpo
+    ---
+    tags:
+      - Books
+    parameters:
+      - name: isbn
+        in: path
+        type: string
+        required: true
+        description: Código ISBN del libro a modificar
+      - in: body
+        name: body
+        required: true
+        description: Solo los atributos que se desean cambiar. Los ausentes NO se tocan.
+        schema:
+          type: object
+          properties:
+            title:
+              type: string
+            publication_year:
+              type: integer
+            price:
+              type: number
+            stock:
+              type: integer
+            format_id:
+              type: integer
+            category_id:
+              type: integer
+            author_ids:
+              type: array
+              items:
+                type: integer
+              description: Si se envía, reemplaza la lista completa de autores
+            genre_ids:
+              type: array
+              items:
+                type: integer
+              description: Si se envía, reemplaza la lista completa de géneros
+    security:
+      - BearerJWT: []
+    responses:
+      200:
+        description: Libro modificado parcialmente
+      401:
+        description: Falta el token, la firma es inválida o el token expiró
+      400:
+        description: Cuerpo vacío, sin campos reconocidos o con tipos inválidos
+      404:
+        description: Libro no encontrado
+      500:
+        description: Error interno del servidor
+    """
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "Cuerpo de solicitud JSON requerido"}), 400
+
+    SCALAR_FIELDS = ("title", "publication_year", "price", "stock", "format_id", "category_id")
+    RELATION_FIELDS = ("author_ids", "genre_ids")
+    unknown = [k for k in data if k not in SCALAR_FIELDS + RELATION_FIELDS]
+    if unknown:
+        return jsonify({
+            "error": "Atributos no modificables",
+            "unknown_fields": unknown,
+            "allowed_fields": list(SCALAR_FIELDS + RELATION_FIELDS)
+        }), 400
+
+    # Conversión de tipos: PATCH valida antes de tocar la base para poder
+    # devolver 400 en lugar de un 500 genérico de PostgreSQL.
+    converted = {}
+    try:
+        if "title" in data and data["title"] is not None:
+            converted["title"] = str(data["title"]).strip()
+        if "publication_year" in data and data["publication_year"] is not None:
+            converted["publication_year"] = int(data["publication_year"])
+        if "price" in data and data["price"] is not None:
+            converted["price"] = float(data["price"])
+        if "stock" in data and data["stock"] is not None:
+            converted["stock"] = int(data["stock"])
+        if "format_id" in data and data["format_id"] is not None:
+            converted["format_id"] = int(data["format_id"])
+        if "category_id" in data and data["category_id"] is not None:
+            converted["category_id"] = int(data["category_id"])
+    except (ValueError, TypeError) as e:
+        return jsonify({"error": "Tipos de datos numéricos inválidos", "details": str(e)}), 400
+
+    if not converted and not any(f in data for f in RELATION_FIELDS):
+        return jsonify({
+            "error": "No se envió ningún atributo modificable",
+            "allowed_fields": list(SCALAR_FIELDS + RELATION_FIELDS)
+        }), 400
+
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id FROM books WHERE isbn = %s;", (isbn.strip(),))
+                book_row = cur.fetchone()
+                if not book_row:
+                    return jsonify({"error": "Libro no encontrado", "isbn": isbn}), 404
+
+                book_id = book_row["id"]
+
+                # 1. Solo los atributos presentes en el cuerpo (a diferencia de PUT)
+                if converted:
+                    fields = ", ".join("%s = %%s" % f for f in converted)
+                    cur.execute(
+                        f"UPDATE books SET {fields} WHERE id = %s;",
+                        tuple(list(converted.values()) + [book_id])
+                    )
+
+                # 2. Relaciones: solo si vienen en el cuerpo
+                if "author_ids" in data:
+                    cur.execute("DELETE FROM book_authors WHERE book_id = %s;", (book_id,))
+                    for a_id in data["author_ids"]:
+                        cur.execute("INSERT INTO book_authors (book_id, author_id) VALUES (%s, %s) ON CONFLICT DO NOTHING;",
+                                    (book_id, int(a_id)))
+
+                if "genre_ids" in data:
+                    cur.execute("DELETE FROM book_genres WHERE book_id = %s;", (book_id,))
+                    for g_id in data["genre_ids"]:
+                        cur.execute("INSERT INTO book_genres (book_id, genre_id) VALUES (%s, %s) ON CONFLICT DO NOTHING;",
+                                    (book_id, int(g_id)))
+
+            conn.commit()
+
+        return jsonify({
+            "message": "Libro modificado parcialmente",
+            "isbn": isbn,
+            "modified_fields": sorted(list(converted.keys()) + [f for f in RELATION_FIELDS if f in data])
+        }), 200
+
+    except (ForeignKeyViolation, CheckViolation) as e:
+        return jsonify({"error": "Violación de restricción de integridad relacional", "details": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": "Error al modificar el libro", "details": str(e)}), 500
+
 @app.route("/books/<string:isbn>", methods=["DELETE"])
 @app.route("/api/book/delete/<string:isbn>", methods=["DELETE", "POST"])
 def delete_book(isbn):
@@ -1349,9 +1769,13 @@ def delete_book(isbn):
         type: string
         required: true
         description: Código ISBN del libro a eliminar
+    security:
+      - BearerJWT: []
     responses:
       200:
         description: Libro eliminado exitosamente
+      401:
+        description: Falta el token, la firma es inválida o el token expiró
       404:
         description: Libro no encontrado
       500:
@@ -1923,12 +2347,14 @@ def handle_500(e):
 # ==============================================================================
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", "5000"))
+    port = int(os.getenv("PORT", "5001"))
     debug_mode = os.getenv("FLASK_DEBUG", "True").lower() in ("true", "1", "yes")
     print("=" * 70)
     print(" Academic Library RESTful Microservice (Flask + Psycopg v3)")
     print(f" Servidor iniciado en: http://127.0.0.1:{port}")
     print(f" Documentación Interactiva Swagger: http://127.0.0.1:{port}/docs")
     print(f" Base de Datos: {os.getenv('DB_NAME', 'library')} @ {os.getenv('DB_HOST', 'localhost')}:{os.getenv('DB_PORT', '5432')}")
+    print(f" Seguridad: GET público  |  POST/PUT/PATCH/DELETE exigen JWT {JWT_ALGORITHM} (iss={JWT_ISSUER})")
+    print(f" Verificación sin estado  |  servicio de login: {LOGIN_BASE_URL}")
     print("=" * 70)
     app.run(host="0.0.0.0", port=port, debug=debug_mode)

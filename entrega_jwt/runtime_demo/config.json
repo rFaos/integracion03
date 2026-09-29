@@ -1,0 +1,12 @@
+{
+  "login_base_url": "http://127.0.0.1:5000",
+  "books_base_url": "http://127.0.0.1:5001",
+  "remote_host": "34.51.29.27",
+  "remote_login_port": 5000,
+  "remote_books_port": 5001,
+  "request_timeout": 8.0,
+  "health_interval_seconds": 30,
+  "session_warning_seconds": 300,
+  "page_size": 12,
+  "remember_credentials": true
+}

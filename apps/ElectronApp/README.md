@@ -7,6 +7,36 @@
 
 ---
 
+## 🔐 Autorización por JWT (v1.1.0)
+
+La aplicación **funciona sin token**: el catálogo es un `GET /books`, y en el
+microservicio ese método es **público** por diseño. Se añadió un campo opcional
+**`🔐 JWT (opcional)`** en la barra de configuración que, si se llena:
+
+- añade el encabezado `Authorization: Bearer <token>` a la petición del catálogo;
+- lo reporta en el estado de la cabecera: `Online: 10 libros (XML) · con JWT`
+  (sin token dice simplemente `Online: 10 libros (XML)`);
+- lo deja registrado en la consola de DevTools, con el token recortado.
+
+Así el mismo cliente demuestra las **dos mitades** de la regla del microservicio: el
+catálogo se lee sin permiso, y el cliente está listo para autenticarse cuando la
+operación lo exige (crear, actualizar o borrar un libro).
+
+| Concepto | Valor |
+|---|---|
+| URL por defecto | `http://127.0.0.1:5001` (ajustable desde la interfaz) |
+| Persistencia | `localStorage`: `catalog_api_base_url`, `catalog_api_endpoint`, `catalog_api_token` |
+| Formato | **XML puro**, parseado con `DOMParser` |
+
+> Se usa `127.0.0.1` y no `localhost` a propósito: en Windows `localhost` resuelve
+> primero a IPv6 (`::1`) mientras los servicios escuchan en IPv4, lo que añade ~2
+> segundos por petición antes del fallback.
+
+Capturas de la app en ejecución: `entrega_jwt/capturas/12_electron_publico.png` y
+`13_electron_con_bearer.png`.
+
+---
+
 ## 📌 Descripción del Proyecto
 Aplicación de escritorio nativa para **Windows 11** desarrollada con **Electron**, diseñada con una interfaz gráfica profesional (*Fluent / Glassmorphism Dark Mode*) que renderiza el catálogo de libros mediante **Cards interactivas**, consumiendo **EXCLUSIVAMENTE datos en formato XML** provistos por el microservicio en la nube desplegado en Google Cloud Platform (`http://34.51.8.146:5001/books`).
 

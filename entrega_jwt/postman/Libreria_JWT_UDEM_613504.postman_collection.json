@@ -1,0 +1,879 @@
+{
+  "info": {
+    "_postman_id": "613504-1b7e-4a9c-9f21-library-jwt",
+    "name": "Librería en línea · JWT (UDEM SC-2236 · 613504)",
+    "description": "Demostración del control de acceso por JWT en los microservicios de la librería.\n\nREGLA QUE SE DEMUESTRA (la \"trampa\"): la autorización NO se decide por ruta, se decide por MÉTODO HTTP.\n  · GET /books y GET /books/{isbn}  -> PÚBLICOS (cualquiera consulta el catálogo)\n  · POST / PUT / PATCH / DELETE     -> PROTEGIDOS (exigen Authorization: Bearer <JWT> del servicio login)\n\nCarpetas:\n  00  La trampa: la misma ruta, dos autorizaciones distintas\n  01  Obtener el JWT (captcha -> registro -> login)\n  02  Catálogo público (sin token)\n  03  Escrituras protegidas (con Bearer)\n  04  Sesión, introspección y refresh token\n  05  Ataques contra el JWT (deben fallar)\n  06  Salud e instancia\n\nAntes de correr: selecciona el entorno \"Librería JWT · local (613504)\" y ejecuta las carpetas en orden (00, 01, 02, ...). Las variables access_token / refresh_token / captcha_id se van llenando solas con los scripts de test.\n\nEl secreto HS256 vive en el ENTORNO ({{jwt_secret}}), no en la colección: igual que en producción, donde la clave va en variables de entorno o en un secret manager y nunca en el código fuente.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "variable": [
+    { "key": "base_url_login", "value": "http://172.32.132.174:5000" },
+    { "key": "base_url_books", "value": "http://172.32.132.174:5001" },
+    { "key": "isbn", "value": "" },
+    { "key": "isbn_alias", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "00 · La trampa: la misma ruta, dos autorizaciones distintas",
+      "description": "La misma URL /books responde distinto según el MÉTODO HTTP. Esto es exactamente lo que se pide: proteger las escrituras sin cerrar el catálogo.",
+      "item": [
+        {
+          "name": "GET /books  (público, sin token) -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /books responde 200 SIN token (catálogo público)', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('La respuesta anuncia los métodos públicos', function () {",
+                  "  pm.expect(pm.response.headers.get('X-Public-Methods')).to.eql('GET, HEAD, OPTIONS');",
+                  "});",
+                  "pm.test('El catálogo trae libros', function () {",
+                  "  pm.expect(pm.response.json().books.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url_books}}/books?format=json", "host": ["{{base_url_books}}"], "path": ["books"], "query": [{ "key": "format", "value": "json" }] }
+          }
+        },
+        {
+          "name": "POST /books  (protegido, SIN token) -> 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /books SIN token responde 401 Unauthorized', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});",
+                  "pm.test('Trae el encabezado WWW-Authenticate: Bearer', function () {",
+                  "  pm.expect(pm.response.headers.get('WWW-Authenticate')).to.include('Bearer');",
+                  "});",
+                  "pm.test('El código de error es TOKEN_REQUIRED', function () {",
+                  "  var b = pm.response.json();",
+                  "  var codigo = (b.error && b.error.code) || b.code;",
+                  "  pm.expect(codigo).to.eql('TOKEN_REQUIRED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"SIN-TOKEN-613504\",\n  \"title\": \"Este alta debe fallar sin token\",\n  \"price\": 100,\n  \"stock\": 1,\n  \"publication_year\": 2026,\n  \"format_id\": 7,\n  \"category_id\": 8,\n  \"author_ids\": [2],\n  \"genre_ids\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url_books}}/books", "host": ["{{base_url_books}}"], "path": ["books"] }
+          }
+        },
+        {
+          "name": "POST /api/book/insert  (ALIAS, SIN token) -> 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El alias de escritura tampoco es una puerta trasera: 401', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"ALIAS-SIN-TOKEN-613504\",\n  \"title\": \"Alias sin token\",\n  \"price\": 100,\n  \"stock\": 1,\n  \"publication_year\": 2026,\n  \"format_id\": 7,\n  \"category_id\": 8,\n  \"author_ids\": [2],\n  \"genre_ids\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url_books}}/api/book/insert", "host": ["{{base_url_books}}"], "path": ["api", "book", "insert"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 · Obtener el JWT (captcha -> registro -> login)",
+      "description": "Aquí nace el token. El login valida las credenciales contra PostgreSQL y devuelve un access_token (JWT, 15 min) y un refresh_token (opaco, 7 días).",
+      "item": [
+        {
+          "name": "GET /captcha  (público)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Resuelve el CAPTCHA aritmético (llega como '¿Cuánto es 4 - 1?').",
+                  "var j = pm.response.json();",
+                  "pm.environment.set('captcha_id', j.data.captcha_id);",
+                  "var m = /(\\d+)\\s*([+\\-*])\\s*(\\d+)/.exec(j.data.question);",
+                  "var a = parseInt(m[1], 10), b = parseInt(m[3], 10), op = m[2];",
+                  "var r = op === '+' ? a + b : (op === '-' ? a - b : a * b);",
+                  "pm.environment.set('captcha_answer', String(r));",
+                  "pm.environment.set('captcha_question', j.data.question);",
+                  "pm.test('El servicio entrega un desafío CAPTCHA', function () {",
+                  "  pm.expect(pm.environment.get('captcha_id')).to.be.a('string').and.not.empty;",
+                  "});",
+                  "console.log('Desafío: ' + pm.environment.get('captcha_question') +",
+                  "            ' -> respuesta ' + pm.environment.get('captcha_answer'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url_login}}/captcha?format=json", "host": ["{{base_url_login}}"], "path": ["captcha"], "query": [{ "key": "format", "value": "json" }] }
+          }
+        },
+        {
+          "name": "POST /register  (alta del usuario de prueba)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// 201 la primera vez; 409 si el usuario demo ya existía de una corrida anterior.",
+                  "pm.test('Registro 201 Created (o 409 si el usuario demo ya existía)', function () {",
+                  "  pm.expect([201, 409]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Postman\",\n  \"apellido_paterno\": \"JWT\",\n  \"apellido_materno\": \"Demo\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"captcha_id\": \"{{captcha_id}}\",\n  \"captcha_answer\": \"{{captcha_answer}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url_login}}/register?format=json", "host": ["{{base_url_login}}"], "path": ["register"], "query": [{ "key": "format", "value": "json" }] }
+          }
+        },
+        {
+          "name": "GET /captcha  (nuevo desafío para el login)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+              "type": "text/javascript",
+              "exec": [
+                "// Desafío nuevo para el login.",
+                "var j = pm.response.json();",
+                "pm.environment.set('captcha_id', j.data.captcha_id);",
+                "var m = /(\\d+)\\s*([+\\-*])\\s*(\\d+)/.exec(j.data.question);",
+                "var a = parseInt(m[1], 10), b = parseInt(m[3], 10), op = m[2];",
+                "var r = op === '+' ? a + b : (op === '-' ? a - b : a * b);",
+                "pm.environment.set('captcha_answer', String(r));",
+                "pm.environment.set('captcha_question', j.data.question);",
+                "console.log('Nuevo desafío: ' + j.data.question + ' -> ' + r);"
+              ]
+            }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url_login}}/captcha?format=json", "host": ["{{base_url_login}}"], "path": ["captcha"], "query": [{ "key": "format", "value": "json" }] }
+          }
+        },
+        {
+          "name": "POST /login  -> aquí nace el JWT",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var cuerpo = pm.response.json();",
+                  "var sesion = cuerpo.data.session;",
+                  "pm.environment.set('access_token', sesion.access_token);",
+                  "pm.environment.set('refresh_token', sesion.refresh_token);",
+                  "pm.test('Login 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Devuelve un access_token con formato JWT (3 segmentos)', function () {",
+                  "  pm.expect(sesion.access_token.split('.').length).to.eql(3);",
+                  "});",
+                  "pm.test('El esquema es Bearer y el algoritmo HS256', function () {",
+                  "  pm.expect(sesion.token_type).to.eql('Bearer');",
+                  "  pm.expect(sesion.algorithm).to.eql('HS256');",
+                  "});",
+                  "pm.test('El access token dura 15 minutos y el refresh 7 días', function () {",
+                  "  pm.expect(sesion.expires_in).to.eql(900);",
+                  "  pm.expect(sesion.refresh_expires_in).to.eql(604800);",
+                  "});",
+                  "pm.test('El refresh_token es distinto del access_token', function () {",
+                  "  pm.expect(sesion.refresh_token).to.not.eql(sesion.access_token);",
+                  "});",
+                  "// Inspección del payload (el payload va CODIFICADO, no cifrado).",
+                  "var payload = JSON.parse(CryptoJS.enc.Utf8.stringify(",
+                  "  CryptoJS.enc.Base64.parse(sesion.access_token.split('.')[1]",
+                  "    .replace(/-/g, '+').replace(/_/g, '/'))));",
+                  "console.log('JWT claims: ' + JSON.stringify(payload));",
+                  "pm.test('Los claims del RFC 7519 están presentes', function () {",
+                  "  ['iss', 'aud', 'sub', 'exp', 'iat', 'nbf'].forEach(function (c) {",
+                  "    pm.expect(payload, 'claim ' + c).to.have.property(c);",
+                  "  });",
+                  "  pm.expect(payload.iss).to.eql('library-login');",
+                  "  pm.expect(payload.aud).to.eql('library-api');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"captcha_id\": \"{{captcha_id}}\",\n  \"captcha_answer\": \"{{captcha_answer}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url_login}}/login?format=json", "host": ["{{base_url_login}}"], "path": ["login"], "query": [{ "key": "format", "value": "json" }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 · Catálogo público (sin token)",
+      "description": "Consultar el catálogo no requiere nada. Es la mitad de la regla que suele romperse cuando se protege \"todo /books\".",
+      "item": [
+        {
+          "name": "GET /books  (sin token) -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Lectura pública del catálogo: 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url_books}}/books?format=json", "host": ["{{base_url_books}}"], "path": ["books"], "query": [{ "key": "format", "value": "json" }] }
+          }
+        },
+        {
+          "name": "GET /books/{{isbn}}  (sin token) -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Detalle por ISBN sin token: 200 (misma ruta que el PUT protegido)', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url_books}}/books/{{isbn}}?format=json", "host": ["{{base_url_books}}"], "path": ["books", "{{isbn}}"], "query": [{ "key": "format", "value": "json" }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 · Escrituras protegidas (Authorization: Bearer)",
+      "description": "Aquí el cliente manda el JWT. Ejecuta antes la carpeta 01 para tener {{access_token}}.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+      },
+      "item": [
+        {
+          "name": "POST /books  (con Bearer) -> 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var cuerpo = pm.response.json();",
+                  "pm.environment.set('isbn', cuerpo.book ? cuerpo.book.isbn : cuerpo.isbn);",
+                  "pm.test('Alta con JWT válido: 201 Created', function () { pm.response.to.have.status(201); });",
+                  "console.log('ISBN guardado en {{isbn}}: ' + pm.environment.get('isbn'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"POSTMAN-JWT-613504\",\n  \"title\": \"Libro creado desde Postman con Bearer\",\n  \"price\": 349.9,\n  \"stock\": 5,\n  \"publication_year\": 2026,\n  \"format_id\": 7,\n  \"category_id\": 8,\n  \"author_ids\": [2],\n  \"genre_ids\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url_books}}/books", "host": ["{{base_url_books}}"], "path": ["books"] }
+          }
+        },
+        {
+          "name": "PUT /books/{{isbn}}  (con Bearer) -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": ["pm.test('PUT con Bearer: 200', function () { pm.response.to.have.status(200); });"] }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Reemplazo completo con PUT y Bearer\",\n  \"price\": 299.9,\n  \"stock\": 9,\n  \"publication_year\": 2026,\n  \"format_id\": 7,\n  \"category_id\": 8,\n  \"author_ids\": [2],\n  \"genre_ids\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url_books}}/books/{{isbn}}", "host": ["{{base_url_books}}"], "path": ["books", "{{isbn}}"] }
+          }
+        },
+        {
+          "name": "PATCH /books/{{isbn}}  (con Bearer) -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": ["pm.test('PATCH parcial con Bearer: 200', function () { pm.response.to.have.status(200); });"] }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 199.5,\n  \"stock\": 12\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url_books}}/books/{{isbn}}", "host": ["{{base_url_books}}"], "path": ["books", "{{isbn}}"] }
+          }
+        },
+        {
+          "name": "POST /api/book/insert  (alias, con Bearer) -> 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('isbn_alias', 'POSTMAN-ALIAS-613504');",
+                  "pm.test('El alias de escritura acepta el mismo JWT: 201', function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"POSTMAN-ALIAS-613504\",\n  \"title\": \"Alta por el alias /api/book/insert con Bearer\",\n  \"price\": 120,\n  \"stock\": 3,\n  \"publication_year\": 2026,\n  \"format_id\": 7,\n  \"category_id\": 8,\n  \"author_ids\": [2],\n  \"genre_ids\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url_books}}/api/book/insert", "host": ["{{base_url_books}}"], "path": ["api", "book", "insert"] }
+          }
+        },
+        {
+          "name": "DELETE /books/{{isbn_alias}}  (alias, con Bearer) -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": ["pm.test('Baja por alias con Bearer: 200', function () { pm.response.to.have.status(200); });"] }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{base_url_books}}/books/{{isbn_alias}}", "host": ["{{base_url_books}}"], "path": ["books", "{{isbn_alias}}"] }
+          }
+        },
+        {
+          "name": "POST /api/book/delete/{{isbn}}  (alias POST de borrado) -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Un POST que borra también exige token (la protección es por método, no por ruta)', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{base_url_books}}/api/book/delete/{{isbn}}", "host": ["{{base_url_books}}"], "path": ["api", "book", "delete", "{{isbn}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 · Sesión, introspección y refresh token",
+      "description": "El access token es stateless (el servicio de libros no consulta la base). El refresh token es opaco, de un solo uso y rotativo: si se reutiliza uno ya rotado, se revocan todas las sesiones del usuario.",
+      "item": [
+        {
+          "name": "GET /session  (con Bearer) -> valida el token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El servicio de login acepta el JWT: 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Informa que la credencial usada es un JWT', function () {",
+                  "  pm.expect(pm.response.json().data.session.credential).to.eql('jwt');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "url": { "raw": "{{base_url_login}}/session?format=json", "host": ["{{base_url_login}}"], "path": ["session"], "query": [{ "key": "format", "value": "json" }] }
+          }
+        },
+        {
+          "name": "POST /verify  (introspección stateless) -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El token es válido', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().data.valid).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base_url_login}}/verify?format=json", "host": ["{{base_url_login}}"], "path": ["verify"], "query": [{ "key": "format", "value": "json" }] }
+          }
+        },
+        {
+          "name": "POST /refresh  (rota el refresh token) -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var cuerpo = pm.response.json();",
+                  "var sesion = cuerpo.data.session;",
+                  "pm.test('El refresh entrega un access_token nuevo', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(sesion.access_token).to.be.a('string');",
+                  "});",
+                  "pm.test('Y rota el refresh_token (el anterior queda quemado)', function () {",
+                  "  pm.expect(sesion.refresh_token).to.not.eql(pm.environment.get('refresh_token'));",
+                  "});",
+                  "pm.environment.set('refresh_token_viejo', pm.environment.get('refresh_token'));",
+                  "pm.environment.set('access_token', sesion.access_token);",
+                  "pm.environment.set('refresh_token', sesion.refresh_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url_login}}/refresh?format=json", "host": ["{{base_url_login}}"], "path": ["refresh"], "query": [{ "key": "format", "value": "json" }] }
+          }
+        },
+        {
+          "name": "POST /refresh  (REUTILIZANDO el token rotado) -> 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Reutilizar un refresh token ya rotado: 401', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});",
+                  "pm.test('El código lo identifica como reuso (REFRESH_REUSED)', function () {",
+                  "  var b = pm.response.json();",
+                  "  var codigo = (b.error && b.error.code) || b.code;",
+                  "  pm.expect(codigo).to.eql('REFRESH_REUSED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token_viejo}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url_login}}/refresh?format=json", "host": ["{{base_url_login}}"], "path": ["refresh"], "query": [{ "key": "format", "value": "json" }] }
+          }
+        },
+        {
+          "name": "POST /logout  (revoca la sesión)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Logout 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('access_token_revocado', pm.environment.get('access_token'));",
+                  "pm.environment.unset('access_token');",
+                  "pm.environment.unset('refresh_token');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url_login}}/logout?format=json", "host": ["{{base_url_login}}"], "path": ["logout"], "query": [{ "key": "format", "value": "json" }] }
+          }
+        },
+        {
+          "name": "GET /session  (con el token revocado) -> 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Tras el logout el JWT ya no sirve: 401', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token_revocado}}" }],
+            "url": { "raw": "{{base_url_login}}/session?format=json", "host": ["{{base_url_login}}"], "path": ["session"], "query": [{ "key": "format", "value": "json" }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 · Ataques contra el JWT (deben fallar)",
+      "description": "El script de esta carpeta fabrica cuatro tokens maliciosos con CryptoJS, usando el secreto del ENTORNO ({{jwt_secret}}) — igual que en producción, donde la clave va en variables de entorno o en un secret manager y nunca en el código fuente. Los cuatro deben dar 401.",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Cada script de Postman corre en su propio ámbito, así que las utilidades",
+              "// de JWT se declaran aquí mismo (no se pueden heredar de otro script).",
+              "",
+              "// Base64URL sin relleno (=), como exige el RFC 7519.",
+              "function b64url(str) {",
+              "  return CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(str))",
+              "    .replace(/=+$/, '').replace(/\\+/g, '-').replace(/\\//g, '_');",
+              "}",
+              "function b64urlJson(obj) { return b64url(JSON.stringify(obj)); }",
+              "",
+              "// Firma HS256: HMAC-SHA256 sobre 'header.payload'.",
+              "function firmar(header, payload, secreto) {",
+              "  var datos = b64urlJson(header) + '.' + b64urlJson(payload);",
+              "  var firma = CryptoJS.HmacSHA256(datos, secreto);",
+              "  return datos + '.' + CryptoJS.enc.Base64.stringify(firma)",
+              "    .replace(/=+$/, '').replace(/\\+/g, '-').replace(/\\//g, '_');",
+              "}",
+              "",
+              "var secreto = pm.environment.get('jwt_secret');",
+              "var ahora = Math.floor(Date.now() / 1000);",
+              "var base = { iss: 'library-login', aud: 'library-api', sub: '1', role: 'Usuario' };",
+              "",
+              "function conExtra(extra) {",
+              "  var p = { iss: base.iss, aud: base.aud, sub: base.sub, role: base.role };",
+              "  for (var k in extra) { p[k] = extra[k]; }",
+              "  return p;",
+              "}",
+              "",
+              "// 1) alg:none — el ataque clásico: token sin firma. Debe rechazarse SIEMPRE.",
+              "var cabeceraNone = { alg: 'none', typ: 'JWT' };",
+              "var payloadNone = conExtra({ iat: ahora, nbf: ahora, exp: ahora + 900 });",
+              "pm.environment.set('jwt_none',",
+              "  b64urlJson(cabeceraNone) + '.' + b64urlJson(payloadNone) + '.');",
+              "",
+              "// 2) Firma con OTRO secreto: el atacante firma bien, pero no con la clave del servidor.",
+              "pm.environment.set('jwt_forged', firmar({ alg: 'HS256', typ: 'JWT' },",
+              "  conExtra({ iat: ahora, nbf: ahora, exp: ahora + 900, role: 'Administrador' }),",
+              "  'secreto-del-atacante'));",
+              "",
+              "// 3) Token EXPIRADO, firmado correctamente con el secreto real.",
+              "pm.environment.set('jwt_expired', firmar({ alg: 'HS256', typ: 'JWT' },",
+              "  conExtra({ iat: ahora - 3600, nbf: ahora - 3600, exp: ahora - 60 }), secreto));",
+              "",
+              "// 4) Token válido pero con OTRA audiencia (no es para este servicio).",
+              "pm.environment.set('jwt_foreign_aud', firmar({ alg: 'HS256', typ: 'JWT' },",
+              "  conExtra({ aud: 'otra-api', iat: ahora, nbf: ahora, exp: ahora + 900 }), secreto));"
+            ]
+          }
+        }
+      ],
+      "item": [
+        {
+          "name": "alg:none  (token sin firma) -> 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('El token con alg:none se rechaza: 401', function () { pm.response.to.have.status(401); });",
+                  "var b = pm.response.json();",
+                  "var codigo = (b.error && b.error.code) || b.code;",
+                  "console.log('Código de rechazo: ' + codigo);",
+                  "pm.test('Se identifica el ataque (ALGORITHM_NONE_REJECTED)', function () {",
+                  "  pm.expect(codigo).to.eql('ALGORITHM_NONE_REJECTED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_none}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"ATAQUE-NONE-613504\",\n  \"title\": \"No debe entrar\",\n  \"price\": 1,\n  \"stock\": 1,\n  \"publication_year\": 2026,\n  \"format_id\": 7,\n  \"category_id\": 8,\n  \"author_ids\": [2],\n  \"genre_ids\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url_books}}/books", "host": ["{{base_url_books}}"], "path": ["books"] }
+          }
+        },
+        {
+          "name": "Firma con otro secreto -> 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Firma inválida: 401', function () { pm.response.to.have.status(401); });",
+                  "var b = pm.response.json();",
+                  "var codigo = (b.error && b.error.code) || b.code;",
+                  "console.log('Código de rechazo: ' + codigo);",
+                  "pm.test('Se detecta la firma manipulada (INVALID_SIGNATURE)', function () {",
+                  "  pm.expect(codigo).to.eql('INVALID_SIGNATURE');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_forged}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"ATAQUE-FIRMA-613504\",\n  \"title\": \"No debe entrar\",\n  \"price\": 1,\n  \"stock\": 1,\n  \"publication_year\": 2026,\n  \"format_id\": 7,\n  \"category_id\": 8,\n  \"author_ids\": [2],\n  \"genre_ids\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url_books}}/books", "host": ["{{base_url_books}}"], "path": ["books"] }
+          }
+        },
+        {
+          "name": "Token expirado -> 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Token expirado: 401', function () { pm.response.to.have.status(401); });",
+                  "var b = pm.response.json();",
+                  "var codigo = (b.error && b.error.code) || b.code;",
+                  "console.log('Código de rechazo: ' + codigo);",
+                  "pm.test('Se detecta la expiración (TOKEN_EXPIRED)', function () {",
+                  "  pm.expect(codigo).to.eql('TOKEN_EXPIRED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_expired}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"ATAQUE-EXP-613504\",\n  \"title\": \"No debe entrar\",\n  \"price\": 1,\n  \"stock\": 1,\n  \"publication_year\": 2026,\n  \"format_id\": 7,\n  \"category_id\": 8,\n  \"author_ids\": [2],\n  \"genre_ids\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url_books}}/books", "host": ["{{base_url_books}}"], "path": ["books"] }
+          }
+        },
+        {
+          "name": "Audiencia ajena (aud != library-api) -> 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Token emitido para otra audiencia: 401', function () { pm.response.to.have.status(401); });",
+                  "var b = pm.response.json();",
+                  "var codigo = (b.error && b.error.code) || b.code;",
+                  "console.log('Código de rechazo: ' + codigo);",
+                  "pm.test('Se detecta la audiencia incorrecta (INVALID_AUDIENCE)', function () {",
+                  "  pm.expect(codigo).to.eql('INVALID_AUDIENCE');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_foreign_aud}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"ATAQUE-AUD-613504\",\n  \"title\": \"No debe entrar\",\n  \"price\": 1,\n  \"stock\": 1,\n  \"publication_year\": 2026,\n  \"format_id\": 7,\n  \"category_id\": 8,\n  \"author_ids\": [2],\n  \"genre_ids\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url_books}}/books", "host": ["{{base_url_books}}"], "path": ["books"] }
+          }
+        },
+        {
+          "name": "GET /books con token basura -> 200 (sigue siendo público)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Un token inválido NO rompe la lectura pública: 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer token-basura-que-no-es-un-jwt" }
+            ],
+            "url": { "raw": "{{base_url_books}}/books?format=json", "host": ["{{base_url_books}}"], "path": ["books"], "query": [{ "key": "format", "value": "json" }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 · Salud e instancia",
+      "description": "Los dos /health informan el estado de JWT y la huella (fingerprint) del secreto compartido: si coinciden, ambos servicios firman y verifican con la misma clave.",
+      "item": [
+        {
+          "name": "GET /health  · login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Servicio de login operativo', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Reporta el bloque JWT', function () {",
+                  "  var d = pm.response.json().data;",
+                  "  pm.expect(d.jwt.enabled).to.eql(true);",
+                  "  pm.expect(d.jwt.algorithm).to.eql('HS256');",
+                  "  console.log('Huella del secreto (login): ' + d.jwt.secret_fingerprint);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url_login}}/health?format=json", "host": ["{{base_url_login}}"], "path": ["health"], "query": [{ "key": "format", "value": "json" }] }
+          }
+        },
+        {
+          "name": "GET /health  · libros",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Servicio de libros operativo', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Declara los métodos públicos y la misma huella de secreto', function () {",
+                  "  var d = pm.response.json();",
+                  "  pm.expect(d.jwt.public_methods).to.include('GET');",
+                  "  console.log('Huella del secreto (libros): ' + d.jwt.secret_fingerprint);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url_books}}/health", "host": ["{{base_url_books}}"], "path": ["health"] }
+          }
+        }
+      ]
+    }
+  ]
+}
