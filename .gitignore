@@ -45,3 +45,10 @@ entrega_jwt/*.zip
 
 # Estado local de herramientas
 .workbuddy-ai/
+
+# venv temporal para capturas de la GUI (Pillow)
+.venv_shots/
+
+# Archivos locales que no van al repo
+apps (3).zip
+/100

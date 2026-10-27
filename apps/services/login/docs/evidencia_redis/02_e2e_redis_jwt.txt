@@ -1,0 +1,47 @@
+E2E Redis + JWT  (login + books reales, PostgreSQL real, Redis simulado)
+  [OK  ] los dos servicios cargaron
+  [OK  ] cada servicio tiene SU PROPIA capa Redis (copias deliberadas)
+  [OK  ] Redis compartido y alcanzable desde ambos servicios
+
+== 1. Login y vigencia de 20 minutos ==
+  [OK  ] login devuelve access_token (JWT)
+  [OK  ] expires_in == 1200 s (20 minutos)  -> expires_in=1200
+  [OK  ] el algoritmo es HS256
+  [OK  ] exp - iat == 1200 s (20 min exactos)  -> exp-iat=1200
+  [OK  ] el token trae 'jti' (para poder revocarlo)
+  [OK  ] el token trae 'sub' y 'role'  -> sub=2 role=Usuario
+
+== 2. Sesion y refresh token en Redis ==
+  [OK  ] la sesion esta en Redis (session:<sid>)
+  [OK  ] el refresh esta en Redis (refresh:<sha256>)
+  [OK  ] el refresh NO se guarda en claro en Redis
+  [OK  ] el jti aun NO esta revocado
+
+== 3. Cache del catalogo (GET /books) ==
+  [OK  ] GET /books responde 200  -> HTTP 200
+  [OK  ] la respuesta quedo cacheada como books:list:<filtros>  -> ['books:list:all']
+  [OK  ] la 2.a lectura es un acierto de cache  -> cache=hit
+
+== 4. Escritura sin token -> 401 ==
+  [OK  ] POST /books sin Authorization responde 401  -> HTTP 401
+  [OK  ] el motivo es TOKEN_REQUIRED  -> code=TOKEN_REQUIRED
+  [OK  ] POST /books CON token ya no es 401 (el guardián lo dejo pasar)  -> HTTP 400
+
+== 5. Revocacion compartida: /logout surte efecto en el OTRO servicio ==
+  [OK  ] /logout responde 200  -> HTTP 200
+  [OK  ] /logout confirma revoked_in_redis  -> {'revoked': True, 'sessions_revoked': 1, 'revoked_in_redis': True, 'note': 'El jti quedó en la lista de revocación de Redis (jwt:revoked:<jti>), así que todos los microservicios rechazan el token de inmediato, sin esperar su expiración.'}
+  [OK  ] el jti quedo en jwt:revoked:<jti>
+  [OK  ] el servicio de LIBROS rechaza el token revocado con 401  -> HTTP 401
+  [OK  ] el motivo es TOKEN_REVOKED  -> code=TOKEN_REVOKED
+  [OK  ] el propio login tambien lo rechaza  -> HTTP 401 code=TOKEN_REVOKED
+
+== 6. Redis caido: fail-closed en escritura, fail-open en lectura ==
+  [OK  ] se obtuvo un token nuevo para la prueba de caida
+  [OK  ] el servicio de libros ve Redis como caido
+  [OK  ] POST /books con Redis caido responde 503 (fail-CLOSED)  -> HTTP 503
+  [OK  ] el codigo es REDIS_UNAVAILABLE  -> code=REDIS_UNAVAILABLE
+  [OK  ] GET /books con Redis caido NO es 503 (fail-OPEN, sigue sirviendo)  -> HTTP 200
+
+==================================================================
+RESULTADO: 30/30 comprobaciones OK.
+Redis compartido + JWT de 20 min + revocacion entre servicios: VERIFICADO.

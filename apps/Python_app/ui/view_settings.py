@@ -4,8 +4,12 @@ Permite cambiar las direcciones de los microservicios SIN tocar el código
 fuente, probarlas antes de guardar y persistirlas en disco. El mismo programa
 sirve así para los dos escenarios:
 
-    Local   -> http://localhost:5000  y  http://localhost:5001
-    Remoto  -> http://<host>:5000     y  http://<host>:5001  (instancia en GCloud)
+    Local   -> http://127.0.0.1:5000 ... :5005
+    Remoto  -> http://<host>:5000     ... :5005  (instancia en GCloud)
+
+Además hay un conmutador de **esquema** (http / https): por defecto http, pero
+al elegir https se reescriben TODAS las direcciones y la preferencia queda
+guardada en `runtime/config.json`, de modo que sobrevive al cierre.
 
 El archivo se guarda en `runtime/config.json`, que está excluido en `.gitignore`
 para no subir direcciones ni credenciales propias al repositorio.
@@ -14,25 +18,27 @@ para no subir direcciones ni credenciales propias al repositorio.
 import tkinter as tk
 from tkinter import ttk
 
-from core.config import CONFIG_PATH, ConfigError
+from core.config import CONFIG_PATH, SERVICE_KEYS, SERVICE_LABELS, ConfigError
 
 from .base_view import BaseView
 from .theme import COLORS, FONT_BOLD, FONT_H2, FONT_H3, FONT_MONO, FONT_SMALL
 
 
 class SettingsView(BaseView):
-    """Pantalla de configuración de los dos microservicios."""
+    """Pantalla de configuración de los seis microservicios."""
 
-    FIELDS = (
-        ("login_base_url", "URL base del microservicio de Login", "Ej. http://localhost:5000"),
-        ("books_base_url", "URL base del microservicio de Libros", "Ej. http://localhost:5001"),
-        ("remote_host", "Host de la instancia remota (GCloud)", "IP o dominio, sin http://"),
-        ("remote_login_port", "Puerto remoto de Login", "5000"),
-        ("remote_books_port", "Puerto remoto de Libros", "5001"),
-        ("request_timeout", "Tiempo de espera por petición (segundos)", "8"),
-        ("health_interval_seconds", "Intervalo de comprobación de /health (segundos)", "30"),
-        ("session_warning_seconds", "Avisar cuando la sesión tenga menos de (segundos)", "300"),
-        ("page_size", "Libros por página en el catálogo", "12"),
+    # Dos columnas de campos. Los seis puertos remotos NO se editan aqui (usan
+    # los valores 5000..5005 y viven en runtime/config.json): meterlos dejaba el
+    # formulario mas alto que la ventana y empujaba los botones fuera de vista.
+    FIELDS = tuple(
+        [(f"{svc}_base_url", f"URL base · {SERVICE_LABELS[svc]}") for svc in SERVICE_KEYS]
+        + [("remote_host", "Host de la instancia remota (GCloud), sin http://")]
+        + [
+            ("request_timeout", "Tiempo de espera por petición (segundos)"),
+            ("health_interval_seconds", "Intervalo de comprobación de /health (segundos)"),
+            ("session_warning_seconds", "Avisar cuando la sesión tenga menos de (segundos)"),
+            ("page_size", "Libros por página en el catálogo"),
+        ]
     )
 
     def build(self):
@@ -59,32 +65,47 @@ class SettingsView(BaseView):
         form = tk.Frame(form_card, bg=COLORS["surface"])
         form.pack(fill="both", expand=True, padx=16, pady=14)
 
+        # Dos columnas de campos: 17 filas en una sola columna no caben en la
+        # ventana (1200x780) y empujarian los botones fuera de la vista.
+        form.columnconfigure(1, weight=1)
+        form.columnconfigure(3, weight=1)
+
         tk.Label(form, text="Direcciones y parámetros", bg=COLORS["surface"], fg=COLORS["text"],
-                 font=FONT_H3).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 6))
+                 font=FONT_H3).grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 6))
+
+        # --- conmutador de esquema (http / https), persistente -----------------
+        tk.Label(form, text="Esquema (http por defecto; se aplica a TODAS las direcciones)",
+                 bg=COLORS["surface"], fg=COLORS["text"], font=FONT_SMALL).grid(
+            row=1, column=0, columnspan=2, sticky="w", pady=(4, 0))
+        self.scheme = tk.StringVar(value="http")
+        ttk.Combobox(form, textvariable=self.scheme, values=("http", "https"),
+                     state="readonly", width=10).grid(row=1, column=2, sticky="w",
+                                                      padx=(10, 0), pady=(4, 0))
 
         self.fields = {}
-        row = 1
-        for key, label, hint in self.FIELDS:
+        for i, (key, label) in enumerate(self.FIELDS):
+            r = 2 + i // 2
+            c = 0 if i % 2 == 0 else 2
             tk.Label(form, text=label, bg=COLORS["surface"], fg=COLORS["text"],
-                     font=FONT_SMALL).grid(row=row, column=0, sticky="w", pady=(6, 0))
-            entry = ttk.Entry(form, width=44)
-            entry.grid(row=row, column=1, sticky="we", padx=(10, 0), pady=(6, 0))
+                     font=FONT_SMALL).grid(row=r, column=c, sticky="w", pady=(4, 0))
+            entry = ttk.Entry(form, width=22)
+            entry.grid(row=r, column=c + 1, sticky="we", padx=(8, 14), pady=(4, 0))
             self.fields[key] = entry
-            tk.Label(form, text=hint, bg=COLORS["surface"], fg=COLORS["muted"],
-                     font=FONT_SMALL).grid(row=row + 1, column=1, sticky="w", padx=(10, 0))
-            row += 2
+        row = 2 + (len(self.FIELDS) + 1) // 2
 
         self.remember = tk.BooleanVar()
         ttk.Checkbutton(form, text="Recordar credenciales en este equipo al iniciar sesión",
                         variable=self.remember, style="Surface.TCheckbutton").grid(
-            row=row, column=0, columnspan=2, sticky="w", pady=(10, 0))
+            row=row, column=0, columnspan=4, sticky="w", pady=(10, 0))
         row += 1
 
         tk.Label(form, text="La contraseña recordada se guarda ofuscada en base64 dentro de "
                             "runtime/session.json. No es cifrado: cualquiera con acceso al "
-                            "archivo puede recuperarla, por eso no se sube al repositorio.",
+                            "archivo puede recuperarla, por eso no se sube al repositorio.\n"
+                            "Los puertos remotos son 5000..5005 (login, libros, usuarios, "
+                            "autores, pedidos, pagos) y se editan en runtime/config.json.",
                  bg=COLORS["surface"], fg=COLORS["muted"], font=FONT_SMALL, justify="left",
-                 wraplength=620).grid(row=row, column=0, columnspan=2, sticky="w", pady=(6, 0))
+                 wraplength=560).grid(row=row, column=0, columnspan=4, sticky="w", pady=(6, 0))
 
         # --- acciones ---------------------------------------------------------
         actions = tk.Frame(self, bg=COLORS["bg"])
@@ -111,11 +132,11 @@ class SettingsView(BaseView):
         tk.Label(inner, text="Prueba contra las direcciones escritas arriba, sin guardarlas. "
                              "Pon un puerto inexistente para ver el estado rojo.",
                  bg=COLORS["surface"], fg=COLORS["muted"], font=FONT_SMALL, justify="left",
-                 wraplength=420).pack(anchor="w", pady=(2, 8))
+                 wraplength=200).pack(anchor="w", pady=(2, 8))
 
         self.results = {}
-        for service, label in (("login", "Microservicio de Login"),
-                               ("books", "Microservicio de Libros")):
+        for service in SERVICE_KEYS:
+            label = SERVICE_LABELS[service]
             line = tk.Frame(inner, bg=COLORS["surface"])
             line.pack(anchor="w", fill="x", pady=3)
             dot = tk.Canvas(line, width=14, height=14, highlightthickness=0, bg=COLORS["surface"])
@@ -123,12 +144,12 @@ class SettingsView(BaseView):
             dot.pack(side="left")
             text = tk.Label(line, text=f"{label}: sin probar", bg=COLORS["surface"],
                             fg=COLORS["text"], font=FONT_SMALL, anchor="w", justify="left",
-                            wraplength=380)
+                            wraplength=200)
             text.pack(side="left", padx=(6, 0))
             self.results[service] = (dot, text)
 
         self.summary = tk.Label(inner, text="", bg=COLORS["surface"], fg=COLORS["muted"],
-                                font=FONT_SMALL, justify="left", wraplength=420)
+                                font=FONT_SMALL, justify="left", wraplength=200)
         self.summary.pack(anchor="w", pady=(10, 0))
 
         tk.Frame(inner, bg=COLORS["border"], height=1).pack(fill="x", pady=10)
@@ -137,9 +158,10 @@ class SettingsView(BaseView):
         tk.Label(inner, text="Es el mismo programa: no hay dos versiones. Solo cambian estas "
                              "direcciones, y quedan guardadas para el próximo arranque.",
                  bg=COLORS["surface"], fg=COLORS["muted"], font=FONT_SMALL, justify="left",
-                 wraplength=420).pack(anchor="w", pady=(2, 6))
+                 wraplength=200).pack(anchor="w", pady=(2, 6))
         self.targets = tk.Label(inner, text="", bg=COLORS["surface_alt"], fg=COLORS["text"],
-                                font=FONT_MONO, justify="left", anchor="w", padx=8, pady=6)
+                                font=FONT_MONO, justify="left", anchor="w", padx=8, pady=6,
+                                wraplength=210)
         self.targets.pack(fill="x")
 
     # ==========================================================================
@@ -148,7 +170,8 @@ class SettingsView(BaseView):
 
     def load_values(self):
         config = self.services.config
-        for key, _label, _hint in self.FIELDS:
+        self.scheme.set(str(config.get("scheme") or "http"))
+        for key, _label in self.FIELDS:
             entry = self.fields[key]
             entry.delete(0, "end")
             entry.insert(0, str(config.get(key)))
@@ -156,12 +179,13 @@ class SettingsView(BaseView):
         self.update_targets()
 
     def update_targets(self):
-        self.targets.configure(
-            text=f"Login : {self.services.config.base_url('login')}\n"
-                 f"Libros: {self.services.config.base_url('books')}")
+        config = self.services.config
+        lines = [f"{svc + ':':<9} {config.base_url(svc)}" for svc in SERVICE_KEYS]
+        self.targets.configure(text="\n".join(lines))
 
     def _collect(self):
         values = {key: entry.get().strip() for key, entry in self.fields.items()}
+        values["scheme"] = self.scheme.get()
         values["remember_credentials"] = bool(self.remember.get())
         return values
 
@@ -169,15 +193,11 @@ class SettingsView(BaseView):
     def test_connection(self):
         """Comprueba GET /health en las direcciones escritas, sin guardarlas."""
         values = self._collect()
-        login_url = values.get("login_base_url")
-        books_url = values.get("books_base_url")
 
         def work():
             health = self.services.health
-            return {
-                "login": health.check("login", base_url=login_url, timeout=5),
-                "books": health.check("books", base_url=books_url, timeout=5),
-            }
+            return {svc: health.check(svc, base_url=values.get(f"{svc}_base_url"), timeout=5)
+                    for svc in SERVICE_KEYS}
 
         def done(results):
             lines = []

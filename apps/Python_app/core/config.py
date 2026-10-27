@@ -38,11 +38,23 @@ LOG_PATH = RUNTIME_DIR / "bitacora.log"
 # ::1 fallara antes de reintentar por IPv4, y eso costaba ~2 segundos por
 # llamada. Con la direccion IPv4 explicita el mismo request tarda ~60 ms.
 DEFAULT_CONFIG = {
+    # Esquema preferido de todas las direcciones. Por defecto HTTP (escenario de
+    # practica); al cambiarlo a "https" se reescriben TODAS las direcciones y la
+    # preferencia queda guardada en config.json, de modo que sobrevive al cierre.
+    "scheme": "http",
     "login_base_url": "http://127.0.0.1:5000",
     "books_base_url": "http://127.0.0.1:5001",
+    "users_base_url": "http://127.0.0.1:5002",
+    "autores_base_url": "http://127.0.0.1:5003",
+    "pedidos_base_url": "http://127.0.0.1:5004",
+    "pagos_base_url": "http://127.0.0.1:5005",
     "remote_host": "34.51.29.27",
     "remote_login_port": 5000,
     "remote_books_port": 5001,
+    "remote_users_port": 5002,
+    "remote_autores_port": 5003,
+    "remote_pedidos_port": 5004,
+    "remote_pagos_port": 5005,
     "request_timeout": 8.0,
     "health_interval_seconds": 30,
     "session_warning_seconds": 300,
@@ -50,10 +62,18 @@ DEFAULT_CONFIG = {
     "remember_credentials": True,
 }
 
+# Los seis microservicios que la aplicacion conoce. Centralizar la lista evita
+# olvidar uno al construir direcciones, presets o el semaforo.
+SERVICE_KEYS = ("login", "books", "users", "autores", "pedidos", "pagos")
+
 # Etiquetas para mostrar en la interfaz sin repetir cadenas por todo el codigo.
 SERVICE_LABELS = {
     "login": "Microservicio de Login",
     "books": "Microservicio de Libros",
+    "users": "Microservicio de Usuarios",
+    "autores": "Microservicio de Autores",
+    "pedidos": "Microservicio de Pedidos",
+    "pagos": "Microservicio de Pagos",
 }
 
 
@@ -144,12 +164,13 @@ class ConfigStore:
         Lanza ConfigError con el primer problema encontrado, de modo que la
         interfaz pueda mostrar el mensaje sin que nada quede a medio guardar.
         """
+        scheme = str(values.get("scheme") or self.get("scheme") or "http").lower()
+        if scheme not in ("http", "https"):
+            raise ConfigError("El esquema debe ser 'http' o 'https'.")
+
         cleaned = {
-            "login_base_url": validate_base_url(values.get("login_base_url"), "URL del servicio de login"),
-            "books_base_url": validate_base_url(values.get("books_base_url"), "URL del servicio de libros"),
+            "scheme": scheme,
             "remote_host": (values.get("remote_host") or "").strip(),
-            "remote_login_port": _as_int(values.get("remote_login_port"), 5000, 1, 65535, "Puerto de login remoto"),
-            "remote_books_port": _as_int(values.get("remote_books_port"), 5001, 1, 65535, "Puerto de libros remoto"),
             "request_timeout": _as_float(values.get("request_timeout"), 8.0, 1, 120, "Timeout de peticiones"),
             "health_interval_seconds": _as_int(values.get("health_interval_seconds"), 30, 5, 3600, "Intervalo de comprobacion"),
             "session_warning_seconds": _as_int(values.get("session_warning_seconds"), 300, 30, 1800, "Aviso de sesion por expirar"),
@@ -158,35 +179,64 @@ class ConfigStore:
         }
         if not cleaned["remote_host"]:
             raise ConfigError("El host remoto no puede quedar vacio.")
+
+        # Direcciones base de los seis servicios (el esquema se aplica al final).
+        for svc in SERVICE_KEYS:
+            key = f"{svc}_base_url"
+            url = values.get(key, self.get(key))
+            url = validate_base_url(url, f"URL del servicio de {SERVICE_LABELS.get(svc, svc)}")
+            cleaned[key] = _force_scheme(url, scheme)
+            port_val = values.get(f"remote_{svc}_port")
+            if port_val in (None, ""):          # campo no enviado: conservar el actual
+                port_val = self.get(f"remote_{svc}_port")
+            cleaned[f"remote_{svc}_port"] = _as_int(
+                port_val, DEFAULT_CONFIG[f"remote_{svc}_port"],
+                1, 65535, f"Puerto remoto de {SERVICE_LABELS.get(svc, svc)}")
+
         self._data.update(cleaned)
         return self
 
     # ------------------------------------------------------------- direcciones
     def base_url(self, service):
-        """Direccion base del servicio indicado ('login' o 'books')."""
-        if service == "login":
-            return self.get("login_base_url")
-        if service == "books":
-            return self.get("books_base_url")
+        """Direccion base del servicio indicado (ver SERVICE_KEYS)."""
+        key = f"{service}_base_url"
+        if key in DEFAULT_CONFIG:
+            return self.get(key)
         raise ConfigError(f"Servicio desconocido: {service}")
 
     def remote_urls(self):
         """Direcciones del escenario remoto (instancia en GCloud)."""
         host = self.get("remote_host")
-        return {
-            "login": f"http://{host}:{self.get('remote_login_port')}",
-            "books": f"http://{host}:{self.get('remote_books_port')}",
-        }
+        scheme = self.get("scheme")
+        return {svc: f"{scheme}://{host}:{self.get('remote_' + svc + '_port')}"
+                for svc in SERVICE_KEYS}
+
+    def set_scheme(self, scheme):
+        """Cambia http<->https en TODAS las direcciones y lo persiste."""
+        scheme = str(scheme or "").lower()
+        if scheme not in ("http", "https"):
+            raise ConfigError("El esquema debe ser 'http' o 'https'.")
+        for svc in SERVICE_KEYS:
+            key = f"{svc}_base_url"
+            self._data[key] = _force_scheme(self.get(key), scheme)
+        self._data["scheme"] = scheme
+        return self
 
     def apply_local_preset(self):
         """Deja la configuracion apuntando a los servicios locales."""
-        self._data["login_base_url"] = DEFAULT_CONFIG["login_base_url"]
-        self._data["books_base_url"] = DEFAULT_CONFIG["books_base_url"]
+        for svc in SERVICE_KEYS:
+            self._data[f"{svc}_base_url"] = _force_scheme(
+                DEFAULT_CONFIG[f"{svc}_base_url"], self.get("scheme"))
         return self
 
     def apply_remote_preset(self):
         """Deja la configuracion apuntando a la instancia remota."""
-        urls = self.remote_urls()
-        self._data["login_base_url"] = urls["login"]
-        self._data["books_base_url"] = urls["books"]
+        for svc, url in self.remote_urls().items():
+            self._data[f"{svc}_base_url"] = url
         return self
+
+
+def _force_scheme(url, scheme):
+    """Devuelve la misma direccion con el esquema indicado."""
+    rest = url.split("://", 1)[1] if "://" in url else url
+    return f"{scheme}://{rest}"

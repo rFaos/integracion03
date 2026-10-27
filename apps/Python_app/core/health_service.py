@@ -21,6 +21,8 @@ import queue
 import threading
 from datetime import datetime
 
+from core.config import SERVICE_LABELS
+
 UP = "up"
 DEGRADED = "degraded"
 DOWN = "down"
@@ -38,12 +40,10 @@ STATE_COLORS = {
     DOWN: "#d93025",      # rojo
 }
 
-SERVICES = ("login", "books")
-
-SERVICE_NAMES = {
-    "login": "Microservicio de Login",
-    "books": "Microservicio de Libros",
-}
+# La lista de servicios y sus etiquetas viven en un solo lugar (core.config):
+# anadir un microservicio nuevo no debe obligar a tocar tambien el semaforo.
+SERVICES = tuple(SERVICE_LABELS)
+SERVICE_NAMES = dict(SERVICE_LABELS)
 
 
 class HealthResult:
@@ -124,7 +124,7 @@ class HealthService:
         """Traduce la respuesta de /health al estado del semaforo."""
         if service == "login":
             return self._classify_login(status, payload, url)
-        return self._classify_books(status, payload, url)
+        return self._classify_generic(service, status, payload, url)
 
     @staticmethod
     def _classify_login(status, payload, url):
@@ -170,36 +170,60 @@ class HealthService:
         )
 
     @staticmethod
-    def _classify_books(status, payload, url):
+    def _classify_generic(service, status, payload, url):
+        """Clasifica los servicios cuyo /health usa el sobre plano.
+
+        Es el caso de `books` y de los cuatro servicios nuevos (users, autores,
+        pedidos, pagos): todos devuelven `{"status": "healthy", "database":
+        "connected", ...}`.
+        """
         payload = payload if isinstance(payload, dict) else {}
+        redis_note = HealthService._redis_note(payload)
 
         if status == 200:
             service_status = str(payload.get("status") or "").lower()
             database = str(payload.get("database") or "").lower()
+            schema = str(payload.get("schema") or "ready").lower()
             if service_status == "healthy" and database == "connected":
+                if schema not in ("ready", ""):
+                    return HealthResult(
+                        service, DEGRADED, "Servicio arriba, esquema incompleto",
+                        payload.get("migration_hint") or f"schema={schema}",
+                        http_status=status, base_url=url,
+                    )
                 return HealthResult(
-                    "books", UP, "Servicio y base de datos operativos",
-                    f"db_response={payload.get('db_response')}",
+                    service, UP, "Servicio y base de datos operativos",
+                    redis_note or f"db_response={payload.get('db_response', 'ok')}",
                     http_status=status, base_url=url,
                 )
             return HealthResult(
-                "books", DEGRADED, "Servicio arriba, dependencia degradada",
+                service, DEGRADED, "Servicio arriba, dependencia degradada",
                 f"status={service_status or 'desconocido'} database={database or 'desconocido'}",
                 http_status=status, base_url=url,
             )
 
         if status == 503:
             return HealthResult(
-                "books", DEGRADED, "Servicio accesible, base de datos no disponible",
-                str(payload.get("error") or "PostgreSQL no disponible"),
+                service, DEGRADED, "Servicio accesible, dependencia no disponible",
+                str(payload.get("error") or "PostgreSQL/Redis no disponible"),
                 http_status=status, base_url=url,
             )
 
         return HealthResult(
-            "books", DEGRADED, f"Respuesta inesperada HTTP {status}",
+            service, DEGRADED, f"Respuesta inesperada HTTP {status}",
             "El endpoint /health no devolvio el cuerpo esperado",
             http_status=status, base_url=url,
         )
+
+    @staticmethod
+    def _redis_note(payload):
+        """Texto corto con el estado de Redis, si el servicio lo reporta."""
+        redis = payload.get("redis")
+        if not isinstance(redis, dict):
+            return ""
+        if redis.get("available"):
+            return f"redis ok ({redis.get('version') or 'conectado'})"
+        return "redis NO disponible"
 
     def check_all(self, timeout=4.0):
         """Comprueba los dos servicios y devuelve {servicio: HealthResult}."""

@@ -12,7 +12,7 @@ pide la actividad.
 from . import trace
 from .auth_service import AuthService
 from .books_service import BooksService
-from .config import ConfigStore
+from .config import SERVICE_KEYS, ConfigStore
 from .health_service import HealthMonitor, HealthService
 from .http_client import HttpClient
 from .session_store import SessionStore
@@ -94,7 +94,4 @@ class ServiceHub:
 
     def describe_targets(self):
         """Resumen de las direcciones activas (se muestra en varias pantallas)."""
-        return {
-            "login": self.config.base_url("login"),
-            "books": self.config.base_url("books"),
-        }
+        return {svc: self.config.base_url(svc) for svc in SERVICE_KEYS}

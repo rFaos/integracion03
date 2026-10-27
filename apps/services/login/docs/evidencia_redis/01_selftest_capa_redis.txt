@@ -1,0 +1,54 @@
+SELF-TEST redis_layer.py  (cliente inyectado: fakeredis)
+
+== 0. Contrato de claves ==
+  [OK  ] prefijo de revocacion es 'jwt:revoked:'
+  [OK  ] prefijo de lista es 'books:list:'
+  [OK  ] prefijo de ficha es 'books:'
+  [OK  ] clave de ficha = books:<isbn> en mayusculas  -> books:ISBN-123
+
+== 1. Normalizacion de la clave de lista ==
+  [OK  ] filtros en distinto orden dan la MISMA clave  -> books:list:autor=1&tema=2 == books:list:autor=1&tema=2
+  [OK  ] sin filtros -> books:list:all
+  [OK  ] los filtros vacios no ensucian la clave
+  [OK  ] Redis disponible con el cliente inyectado
+
+== 2. Sesion y refresh token ==
+  [OK  ] la sesion se guarda y se lee  -> {'user_id': 7, 'role': 'admin'}
+  [OK  ] la clave real es session:<sid>
+  [OK  ] la sesion tiene TTL aplicado  -> ttl=604800
+  [OK  ] el refresh se guarda bajo refresh:<sha256>
+  [OK  ] get_refresh devuelve el contenido
+  [OK  ] la rotacion borra el refresh viejo
+  [OK  ] la rotacion guarda el nuevo
+  [OK  ] delete_session borra la clave
+  [OK  ] tras delete_session ya no existe
+
+== 3. Lista de revocacion de JWT ==
+  [OK  ] la clave es jwt:revoked:<jti>
+  [OK  ] is_revoked() detecta el token revocado
+  [OK  ] is_revoked() es False para un jti limpio
+  [OK  ] el TTL de la revocacion es la vida restante del token  -> ttl=900
+
+== 4. Cache del catalogo e invalidacion ==
+  [OK  ] la lista cacheada se lee
+  [OK  ] la ficha cacheada se lee
+  [OK  ] el TTL del cache es corto
+  [OK  ] invalidate_books() borra lista y ficha de una pasada  -> borradas=2
+  [OK  ] la lista ya no esta en cache
+  [OK  ] la ficha ya no esta en cache
+
+== 5. Politica de fallo (la trampa del enunciado) ==
+  [OK  ] cache_get con Redis caido devuelve None (fail-OPEN)
+  [OK  ] cache_set con Redis caido no lanza (fail-OPEN)
+  [OK  ] invalidate_books con Redis caido no lanza (fail-OPEN)
+  [OK  ] is_revoked con Redis caido LANZA RedisUnavailable (fail-CLOSED)
+  [OK  ] la excepcion es 503, no 401
+  [OK  ] save_session con Redis caido LANZA (fail-CLOSED)
+
+== 6. Higiene de secretos ==
+  [OK  ] mask_url oculta la contrasena  -> redis://:***@10.0.0.5:6379/0
+  [OK  ] mask_url conserva host y base  -> redis://:***@10.0.0.5:6379/0
+  [OK  ] health() nunca expone la contrasena
+
+==============================================================
+RESULTADO: 36/36 comprobaciones OK. Capa Redis verificada.

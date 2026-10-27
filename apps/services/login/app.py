@@ -51,6 +51,7 @@ from flasgger import Swagger
 # gunicorn desde la raíz del monorepo) sin perder de vista los módulos locales.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import jwt_utils  # noqa: E402  (implementación propia de RFC 7519)
+import redis_layer  # noqa: E402  (capa compartida: sesiones, revocación y caché)
 
 # ==============================================================================
 # 1. CONFIGURACIÓN
@@ -80,7 +81,9 @@ JWT_SECRET        = os.getenv("JWT_SECRET", "")
 JWT_ALGORITHM     = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_ISSUER        = os.getenv("JWT_ISSUER", "library-login")
 JWT_AUDIENCE      = os.getenv("JWT_AUDIENCE", "library-api")
-JWT_ACCESS_MINUTES = int(os.getenv("JWT_ACCESS_MINUTES", "15"))
+# 20 minutos: es el valor que exige el ejercicio guiado de Redis ("conserva el
+# JWT de acceso con expiración de 20 minutos"). Antes eran 15.
+JWT_ACCESS_MINUTES = int(os.getenv("JWT_ACCESS_MINUTES", "20"))
 JWT_REFRESH_DAYS   = int(os.getenv("JWT_REFRESH_DAYS", "7"))
 JWT_LEEWAY_SECONDS = int(os.getenv("JWT_LEEWAY_SECONDS", "5"))
 
@@ -99,13 +102,23 @@ if not JWT_SECRET:
 
 EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
 
+# CORS acotado a los orígenes de las aplicaciones cliente (el enunciado pide
+# NO usar "*" en producción). La app Tk no es un navegador y no pasa por CORS;
+# esta lista solo afecta a los clientes web del monolito.
+DEFAULT_CORS_ORIGINS = (
+    "http://localhost:3000,http://127.0.0.1:3000,http://34.51.29.27:3000"
+)
+CORS_ORIGINS = [o.strip() for o in
+                os.getenv("CORS_ORIGINS", DEFAULT_CORS_ORIGINS).split(",") if o.strip()]
+
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=SESSION_MINUTES)
 app.json.sort_keys = False
 
-# CORS: al no usar cookies no hay credenciales de navegador que proteger.
-CORS(app, resources={r"/*": {"origins": "*"}})
+# CORS: al no usar cookies no hay credenciales de navegador que proteger, pero
+# el origen sí se restringe a los clientes conocidos.
+CORS(app, resources={r"/*": {"origins": CORS_ORIGINS}})
 
 # ==============================================================================
 # 2. SWAGGER / OPENAPI
@@ -323,7 +336,8 @@ def execute(sql, params=()):
 
 
 PUBLIC_USER_FIELDS = (
-    "id, nombre, apellido_paterno, apellido_materno, email, role, is_active, created_at, last_login"
+    "id, nombre, apellido_paterno, apellido_materno, email, role, role_id, "
+    "is_active, created_at, last_login"
 )
 
 
@@ -335,6 +349,10 @@ def public_user(row):
         "apellido_materno": row["apellido_materno"],
         "email": row["email"],
         "role": row["role"],
+        # `role_id` es la referencia normalizada al catálogo `roles`. El
+        # enunciado exige que el JWT la lleve, y devolverla también aquí ayuda a
+        # que los clientes no tengan que resolver el texto del rol a mano.
+        "role_id": row.get("role_id"),
     }
 
 
@@ -523,6 +541,10 @@ def issue_access_token(user_row, session_id, jti):
         "typ": "access",
         "email": user_row.get("email"),
         "role": user_row.get("role"),
+        # `role_id` (catálogo `roles`): lo exige el enunciado junto con el
+        # user_id. Los servicios nuevos autorizan por este id, no por el texto
+        # del rol, para que renombrar un rol en la base no rompa la autorización.
+        "role_id": user_row.get("role_id"),
         "name": " ".join(filter(None, [user_row.get("nombre"), user_row.get("apellido_paterno")])),
         "iat": int(now.timestamp()),
         "nbf": int(now.timestamp()),
@@ -542,6 +564,11 @@ def create_session(user_id, jti):
 
     Solo se persiste el SHA-256 del refresh token: si la base se filtra, los
     valores guardados no sirven para autenticarse (mismo principio que bcrypt).
+
+    La MISMA sesión se espeja en Redis con TTL, que es lo que permite que
+    cualquier servicio comparta el estado sin consultar PostgreSQL. El TTL se
+    calcula con la vigencia real (no con la constante) para que el espejo
+    expire exactamente cuando expira la fila.
     """
     refresh_token = secrets.token_urlsafe(48)
     expires_at = datetime.now(timezone.utc) + timedelta(days=JWT_REFRESH_DAYS)
@@ -553,7 +580,32 @@ def create_session(user_id, jti):
         (token_hash(refresh_token), user_id, expires_at, client_ip(),
          (request.headers.get("User-Agent") or "")[:255], str(jti)),
     )
+
+    # --- Espejo en Redis (capa compartida) -----------------------------------
+    # Si Redis no responde, `save_session` lanza RedisUnavailable y el endpoint
+    # responde 503: las operaciones de sesión NO se degradan (fail-closed).
+    ttl = session_ttl_seconds(row["expires_at"])
+    refresh_sha = token_hash(refresh_token)
+    redis_layer.save_session(row["id"], {
+        "session_id": row["id"],
+        "user_id": user_id,
+        "jti": str(jti),
+        "refresh_sha256": refresh_sha,
+        "expires_at": row["expires_at"].isoformat(),
+    }, ttl=ttl)
+    redis_layer.save_refresh(refresh_sha, {
+        "session_id": row["id"], "user_id": user_id, "jti": str(jti),
+    }, ttl=ttl)
+
     return refresh_token, row["id"], row["expires_at"]
+
+
+def session_ttl_seconds(expires_at):
+    """Segundos que le quedan a una sesión (mínimo 1 para no crear claves eternas)."""
+    if expires_at is None:
+        return JWT_REFRESH_DAYS * 86400
+    remaining = int((expires_at - datetime.now(timezone.utc)).total_seconds())
+    return max(remaining, 1)
 
 
 def session_payload(user_row, access_token, access_expires_at,
@@ -651,6 +703,17 @@ def current_session():
         claims, error = verify_access_token(token)
         if error:
             return None, error
+
+        # --- Lista de revocación en Redis (jwt:revoked:<jti>) -----------------
+        # Se comprueba ANTES de aceptar el token. Si Redis no responde, la
+        # comprobación no se puede hacer y se DENIEGA (fail-closed): "no pude
+        # comprobar la revocación" nunca equivale a "no está revocado".
+        try:
+            if redis_layer.is_revoked(claims.get("jti")):
+                return None, ("TOKEN_REVOKED",
+                              "El token fue revocado (sesión cerrada). Inicia sesión de nuevo.", 401)
+        except redis_layer.RedisUnavailable as exc:
+            return None, (exc.code, str(exc), exc.status)
 
         session_id = claims.get("sid")
         if JWT_CHECK_SESSION and session_id:
@@ -806,12 +869,16 @@ def health():
                 "secret_fingerprint": (hashlib.sha256(JWT_SECRET.encode()).hexdigest()[:12]
                                        if JWT_SECRET else None),
             },
+            # Bloque Redis: la capa compartida. `url` viene enmascarada (nunca
+            # la contraseña) y `reachable` es la sonda real de PING.
+            "redis": redis_layer.health(),
         }
         if not migrated:
             data["migration_hint"] = (
                 "Faltan migraciones sobre la base de datos library. Comandos: "
                 "psql -U library_user -d library -f sql/01_migration_auth.sql && "
-                "psql -U library_user -d library -f sql/03_migration_jwt.sql"
+                "psql -U library_user -d library -f sql/03_migration_jwt.sql && "
+                "psql -U library_user -d library -f sql/04_migration_roles.sql"
             )
 
         return ok(
@@ -999,7 +1066,12 @@ def login():
                     500, links=ANON_LINKS)
 
     jti = uuid.uuid4()
-    refresh_token, session_id, refresh_expires_at = create_session(row["id"], jti)
+    try:
+        refresh_token, session_id, refresh_expires_at = create_session(row["id"], jti)
+    except redis_layer.RedisUnavailable as exc:
+        # Fail-closed: no se entrega una sesión que no se pudo registrar en la
+        # capa compartida, porque entonces no podría revocarse.
+        return fail(exc.code, str(exc), exc.status, links=ANON_LINKS)
     access_token, access_expires_at, _claims = issue_access_token(row, session_id, jti)
 
     audit("/login", "JSON" if wants_json() else "XML", client_ip())
@@ -1043,12 +1115,14 @@ def logout():
     kind, token = read_credentials()
 
     session_id = None
+    jwt_claims = None
 
     # 1. Localizar la sesión del access token. Se verifica la firma SIN exigir
     #    'exp': si el usuario pulsa "cerrar sesión" con el token ya expirado, la
     #    intención sigue siendo válida y la sesión debe quedar revocada.
     if kind == "jwt":
         claims, _error = verify_access_token(token, verify_exp=False)
+        jwt_claims = claims
         if claims and claims.get("sid"):
             session_id = int(claims["sid"])
     elif kind == "opaque":
@@ -1075,6 +1149,27 @@ def logout():
             "UPDATE user_sessions SET revoked_at = CURRENT_TIMESTAMP "
             " WHERE token_hash = %s AND revoked_at IS NULL", (token_hash(refresh_token),))
 
+    # 3. Capa Redis: revocación inmediata del access token y limpieza del espejo.
+    #    Esto es lo que cierra el hueco del JWT sin estado: a partir de aquí
+    #    CUALQUIER servicio que consulte jwt:revoked:<jti> rechaza el token, sin
+    #    esperar a que expire.
+    redis_revoked = False
+    try:
+        if jwt_claims and jwt_claims.get("jti"):
+            # TTL = vida restante del access token. Cuando el token caduque por sí
+            # solo, la entrada sobra y Redis la descarta automáticamente.
+            remaining = max(int(jwt_claims.get("exp", 0) - time.time()), 1)
+            redis_layer.revoke_jti(jwt_claims["jti"], remaining)
+            redis_revoked = True
+        if session_id is not None:
+            redis_layer.delete_session(session_id)
+        if refresh_token:
+            redis_layer.delete_refresh(token_hash(refresh_token))
+    except redis_layer.RedisUnavailable as exc:
+        # Si no se pudo publicar la revocación, el resto de servicios seguirían
+        # aceptando el token: es un fallo crítico y se reporta como tal.
+        return fail(exc.code, str(exc), exc.status, links=ANON_LINKS)
+
     audit("/logout", "JSON" if wants_json() else "XML", client_ip())
 
     return ok(
@@ -1082,10 +1177,10 @@ def logout():
         data={
             "revoked": True,
             "sessions_revoked": revoked,
-            "note": ("El access token es un JWT sin estado: este servicio lo rechaza de "
-                     "inmediato (revocación en user_sessions), mientras que el servicio de "
-                     "libros lo aceptará como máximo hasta su expiración natural "
-                     "(JWT_ACCESS_MINUTES). Es el precio de no compartir estado."),
+            "revoked_in_redis": redis_revoked,
+            "note": ("El jti quedó en la lista de revocación de Redis "
+                     "(jwt:revoked:<jti>), así que todos los microservicios "
+                     "rechazan el token de inmediato, sin esperar su expiración."),
         },
         links=ANON_LINKS,
     )

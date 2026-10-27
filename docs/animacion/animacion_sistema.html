@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Animación — Integración de microservicios (SC-2236)</title>
+<style>
+  :root{
+    --bg:#0b0f16; --bg2:#111826; --panel:#151d2c; --panel2:#1b2536;
+    --line:#26334a; --text:#e8eefc; --muted:#8fa0bd; --dim:#5f7292;
+    --login:#7c5cff; --books:#2f9e6b; --users:#3b82f6; --autores:#e0a020;
+    --pedidos:#e0574f; --pagos:#12a5a5; --db:#4b6bff; --redis:#d63b3b;
+    --ok:#25c07a; --warn:#e8a600; --bad:#e5484d;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font:15px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:26px 20px 40px}
+  header{border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:18px}
+  h1{margin:0 0 4px;font-size:24px;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:13.5px}
+  .sub b{color:var(--text);font-weight:600}
+
+  /* ---------- escenario ---------- */
+  .stage{position:relative;height:520px;background:
+      radial-gradient(1200px 400px at 20% 0%, #16203a 0%, transparent 60%),
+      var(--bg2);
+    border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .links{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .links line{stroke:var(--line);stroke-width:1.5}
+  .links line.hot{stroke:var(--accent,#7c5cff);stroke-width:2.5;
+    filter:drop-shadow(0 0 6px var(--accent,#7c5cff))}
+
+  .node{position:absolute;transform:translate(-50%,-50%);
+    background:var(--panel);border:1px solid var(--line);border-radius:11px;
+    padding:8px 11px;min-width:132px;text-align:left;
+    transition:border-color .25s, box-shadow .25s, transform .25s}
+  .node .nm{font-size:12.5px;font-weight:650;letter-spacing:.01em}
+  .node .pt{font-size:11px;color:var(--muted);font-family:"Cascadia Code",Consolas,monospace}
+  .node .tag{display:none;margin-top:5px;font-size:10.5px;font-weight:700;
+    color:#fff;background:var(--accent,#7c5cff);border-radius:5px;padding:1px 6px;
+    width:max-content;letter-spacing:.03em}
+  .node.showtag .tag{display:block}
+  .node.active{border-color:var(--accent,#7c5cff);
+    box-shadow:0 0 0 3px color-mix(in srgb,var(--accent,#7c5cff) 28%, transparent),
+               0 8px 24px -10px var(--accent,#7c5cff);transform:translate(-50%,-50%) scale(1.05)}
+  .node.danger{border-color:var(--bad);
+    box-shadow:0 0 0 3px color-mix(in srgb,var(--bad) 30%, transparent)}
+
+  .node.client{min-width:168px}
+  .node.store{min-width:150px}
+
+  .packet{position:absolute;width:11px;height:11px;border-radius:50%;
+    transform:translate(-50%,-50%);pointer-events:none;
+    box-shadow:0 0 10px 2px currentColor}
+  .packet .plabel{position:absolute;left:14px;top:-9px;white-space:nowrap;
+    font-size:10.5px;font-family:"Cascadia Code",Consolas,monospace;color:var(--text);
+    background:#0b0f16cc;border:1px solid var(--line);border-radius:5px;padding:0 5px}
+
+  /* ---------- narración ---------- */
+  .narr{margin-top:16px;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:16px 18px}
+  .narr .kicker{font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--dim);font-weight:700}
+  .narr h2{margin:4px 0 6px;font-size:19px}
+  .narr p{margin:0;color:var(--muted);font-size:14px;min-height:44px}
+  .narr code{background:#0b0f16;border:1px solid var(--line);border-radius:4px;
+    padding:1px 5px;font-size:12.5px;color:#cdd9f5}
+  .controls{display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap}
+  button{background:var(--panel2);color:var(--text);border:1px solid var(--line);
+    border-radius:8px;padding:7px 13px;font-size:13px;cursor:pointer;font-weight:600}
+  button:hover{border-color:var(--accent,#7c5cff)}
+  button.primary{background:var(--accent,#7c5cff);border-color:transparent;color:#fff}
+  .spacer{flex:1}
+  .dots{display:flex;gap:6px}
+  .dots i{width:8px;height:8px;border-radius:50%;background:var(--line);cursor:pointer;
+    transition:background .2s,transform .2s}
+  .dots i.on{background:var(--accent,#7c5cff);transform:scale(1.25)}
+  .bar{height:3px;background:var(--line);border-radius:3px;margin-top:12px;overflow:hidden}
+  .bar > div{height:100%;width:0;background:var(--accent,#7c5cff)}
+
+  /* ---------- leyenda ---------- */
+  .legend{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .card h3{margin:0 0 8px;font-size:13.5px}
+  .card p{margin:0;color:var(--muted);font-size:12.8px}
+  .pill{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;
+    padding:1px 7px;margin-right:6px}
+  .pill.open{background:#123a2a;color:#4fe0a0;border:1px solid #1d6b4b}
+  .pill.closed{background:#3a1414;color:#ff8a8a;border:1px solid #7a2a2a}
+  footer{color:var(--dim);font-size:12.5px;margin-top:22px;text-align:center}
+  @media (max-width:900px){
+    .stage{height:600px}
+    .legend{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Integración de microservicios — del login al pago</h1>
+    <div class="sub">
+      Fabián Azaed Orta Singlaterry · matrícula <b>613504</b> · UDEM <b>SC-2236</b><br>
+      Cliente de escritorio (Tk) · 6 microservicios (Flask) · PostgreSQL · Redis · JWT HS256
+    </div>
+  </header>
+
+  <div class="stage" id="stage">
+    <svg class="links" id="links"></svg>
+
+    <div class="node client" id="n-client" style="--accent:#8b93a7">
+      <div class="nm">Cliente de escritorio</div>
+      <div class="pt">Tkinter · Python</div>
+      <div class="tag">JWT</div>
+    </div>
+
+    <div class="node" id="n-login" style="--accent:var(--login)">
+      <div class="nm">Login</div><div class="pt">:5000</div><div class="tag">JWT</div>
+    </div>
+    <div class="node" id="n-books" style="--accent:var(--books)">
+      <div class="nm">Libros (SOAP)</div><div class="pt">:5001</div><div class="tag">cache</div>
+    </div>
+    <div class="node" id="n-users" style="--accent:var(--users)">
+      <div class="nm">Usuarios</div><div class="pt">:5002</div><div class="tag">admin</div>
+    </div>
+    <div class="node" id="n-autores" style="--accent:var(--autores)">
+      <div class="nm">Autores</div><div class="pt">:5003</div><div class="tag">cache</div>
+    </div>
+    <div class="node" id="n-pedidos" style="--accent:var(--pedidos)">
+      <div class="nm">Pedidos</div><div class="pt">:5004</div><div class="tag">stock</div>
+    </div>
+    <div class="node" id="n-pagos" style="--accent:var(--pagos)">
+      <div class="nm">Pagos</div><div class="pt">:5005</div><div class="tag">1 transacción</div>
+    </div>
+
+    <div class="node store" id="n-postgres" style="--accent:var(--db)">
+      <div class="nm">PostgreSQL</div><div class="pt">base: library</div><div class="tag">commit</div>
+    </div>
+    <div class="node store" id="n-redis" style="--accent:var(--redis)">
+      <div class="nm">Redis</div><div class="pt">sesiones · revocación · caché</div>
+      <div class="tag">jti</div>
+    </div>
+
+    <div class="packets" id="packets"></div>
+  </div>
+
+  <div class="narr">
+    <div class="kicker" id="kicker">Paso 1 de 10</div>
+    <h2 id="stepTitle">—</h2>
+    <p id="stepText">—</p>
+    <div class="controls">
+      <button class="primary" id="btnPlay">⏸ Pausar</button>
+      <button id="btnPrev">◀ Anterior</button>
+      <button id="btnNext">Siguiente ▶</button>
+      <button id="btnSpeed">Velocidad 1×</button>
+      <div class="spacer"></div>
+      <div class="dots" id="dots"></div>
+    </div>
+    <div class="bar"><div id="bar"></div></div>
+  </div>
+
+  <div class="legend">
+    <div class="card">
+      <h3>Autenticación sin cookies</h3>
+      <p>El login emite un <b>JWT HS256 de 20 min</b> con <code>user_id</code> y
+      <code>role_id</code>. No hay sesión por cookie: cada petición viaja con
+      <code>Authorization: Bearer &lt;JWT&gt;</code>.</p>
+    </div>
+    <div class="card">
+      <h3>Política de fallo asimétrica</h3>
+      <p><span class="pill closed">fail-CLOSED</span> sesión, revocación y
+      autorización: si Redis cae → <b>503</b>, nunca se acepta un token dudoso.<br>
+      <span class="pill open">fail-OPEN</span> caché de catálogo: si Redis cae, se
+      sirve desde PostgreSQL.</p>
+    </div>
+    <div class="card">
+      <h3>Autorización por método</h3>
+      <p><code>GET/HEAD/OPTIONS</code> pueden ser públicos (catálogo); el resto exige
+      Bearer. 401 si falta o es inválido el token; <b>403</b> si el rol no alcanza.</p>
+    </div>
+  </div>
+
+  <footer>
+    Animación autocontenida (sin recursos externos) · generada para la entrega de
+    SC-2236 · repositorio <code>integracion03</code>.
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var stage = document.getElementById("stage");
+  var svg   = document.getElementById("links");
+  var packetsLayer = document.getElementById("packets");
+
+  // Posiciones (porcentaje dentro del escenario). El cliente a la izquierda,
+  // los servicios en columna, los almacenes a la derecha.
+  var POS = {
+    client:  [11, 50],
+    login:   [40, 12], books:[40, 25], users:[40, 38],
+    autores: [40, 51], pedidos:[40, 64], pagos:[40, 77],
+    postgres:[84, 33], redis:[84, 68]
+  };
+  var COLORS = {
+    client:"#8b93a7", login:"#7c5cff", books:"#2f9e6b", users:"#3b82f6",
+    autores:"#e0a020", pedidos:"#e0574f", pagos:"#12a5a5",
+    postgres:"#4b6bff", redis:"#d63b3b"
+  };
+  var LINKS = [
+    ["client","login"],["client","books"],["client","users"],
+    ["client","autores"],["client","pedidos"],["client","pagos"],
+    ["login","postgres"],["books","postgres"],["users","postgres"],
+    ["autores","postgres"],["pedidos","postgres"],["pagos","postgres"],
+    ["login","redis"],["books","redis"],["users","redis"],
+    ["autores","redis"],["pedidos","redis"],["pagos","redis"]
+  ];
+
+  function center(id){
+    var p = POS[id], r = stage.getBoundingClientRect();
+    return { x: p[0]/100*r.width, y: p[1]/100*r.height };
+  }
+  function place(){
+    Object.keys(POS).forEach(function(id){
+      var el = document.getElementById("n-"+id);
+      if(!el) return;
+      el.style.left = POS[id][0] + "%";
+      el.style.top  = POS[id][1] + "%";
+    });
+  }
+  function drawLinks(){
+    var r = stage.getBoundingClientRect();
+    svg.setAttribute("viewBox", "0 0 "+r.width+" "+r.height);
+    svg.innerHTML = "";
+    LINKS.forEach(function(pair){
+      var a = center(pair[0]), b = center(pair[1]);
+      var ln = document.createElementNS("http://www.w3.org/2000/svg","line");
+      ln.setAttribute("x1",a.x); ln.setAttribute("y1",a.y);
+      ln.setAttribute("x2",b.x); ln.setAttribute("y2",b.y);
+      ln.dataset.a = pair[0]; ln.dataset.b = pair[1];
+      svg.appendChild(ln);
+    });
+  }
+
+  // --- paquetes ---------------------------------------------------------------
+  var running = [];   // {el, path:[{x,y}...], t0, dur, color}
+  function spawnPacket(pathIds, color, label, dur, delay){
+    var pts = pathIds.map(center);
+    var el = document.createElement("div");
+    el.className = "packet";
+    el.style.color = color;
+    el.style.background = color;
+    if(label){
+      var l = document.createElement("span");
+      l.className = "plabel"; l.textContent = label; el.appendChild(l);
+    }
+    packetsLayer.appendChild(el);
+    running.push({el:el, path:pts, t0:performance.now()+(delay||0),
+                  dur:dur||900, delay:delay||0});
+    return el;
+  }
+  function clearPackets(){ running = []; packetsLayer.innerHTML = ""; }
+
+  function tick(now){
+    for(var i=running.length-1;i>=0;i--){
+      var p = running[i];
+      var t = (now - p.t0) / p.dur;
+      if(t < 0) continue;
+      if(t >= 1){
+        p.el.style.left = p.path[p.path.length-1].x + "px";
+        p.el.style.top  = p.path[p.path.length-1].y + "px";
+        p.el.style.opacity = "0";
+        p.el.remove(); running.splice(i,1); continue;
+      }
+      var segs = p.path.length - 1;
+      var f = t * segs, idx = Math.min(Math.floor(f), segs-1), lt = f - idx;
+      var a = p.path[idx], b = p.path[idx+1];
+      p.el.style.left = (a.x + (b.x-a.x)*lt) + "px";
+      p.el.style.top  = (a.y + (b.y-a.y)*lt) + "px";
+      p.el.style.opacity = "1";
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function hotLink(a,b,on){
+    Array.prototype.forEach.call(svg.querySelectorAll("line"), function(ln){
+      if((ln.dataset.a===a&&ln.dataset.b===b)||(ln.dataset.a===b&&ln.dataset.b===a)){
+        ln.classList.toggle("hot", !!on);
+        if(on) ln.style.setProperty("--accent", COLORS[a]||COLORS[b]);
+      }
+    });
+  }
+
+  // --- guion de la animación --------------------------------------------------
+  var STEPS = [
+    { t:"El cliente pide un CAPTCHA y se autentica",
+      d:"Antes de tocar credenciales, el cliente pide un CAPTCHA aritmético y lo resuelve. Solo entonces envía <code>POST /login</code>. El login comprueba la cuenta contra PostgreSQL.",
+      hl:["login","postgres"], accent:"login",
+      pk:[{p:["client","login"],l:"POST /login",d:850},
+          {p:["login","postgres"],l:"SELECT users",d:800},
+          {p:["login","client"],l:"captcha_id + answer",d:850,d0:900}] },
+
+    { t:"El login emite un JWT de 20 minutos",
+      d:"Firma <b>HS256</b> con el secreto compartido. El token lleva <code>user_id</code>, <code>role_id</code>, <code>jti</code>, <code>iss</code> y <code>aud</code>. Sesión y refresh se espejan en Redis.",
+      hl:["login","redis"], accent:"login",
+      pk:[{p:["login","redis"],l:"session + refresh",d:850},
+          {p:["login","client"],l:"access_token (20m)",d:850,d0:500}] },
+
+    { t:"Cada escritura viaja con Authorization: Bearer <JWT>",
+      d:"No hay cookies. El cliente guarda el token y lo adjunta a cada <code>POST</code>, <code>PUT</code>, <code>PATCH</code> y <code>DELETE</code>.",
+      hl:["client","pedidos"], accent:"pedidos",
+      pk:[{p:["client","pedidos"],l:"Authorization: Bearer …",d:900},
+          {p:["client","users"],l:"Bearer …",d:900,d0:250},
+          {p:["client","pagos"],l:"Bearer …",d:900,d0:500}] },
+
+    { t:"El servicio verifica firma, algoritmo, expiración y claims",
+      d:"Comprueba <b>firma</b>, que el algoritmo sea el esperado (evita el ataque <code>alg:none</code>), que no haya expirado, y valida <code>iss</code>, <code>aud</code>, <code>user_id</code> y <code>role_id</code>. Si falta o es inválido → <b>401</b>.",
+      hl:["login","books","users","autores","pedidos","pagos"], accent:"users",
+      pk:[{p:["client","users"],l:"verificar",d:800}] },
+
+    { t:"Y pregunta a Redis: ¿este jti está revocado?",
+      d:"Todos los servicios consultan la clave <code>jwt:revoked:&lt;jti&gt;</code> en Redis antes de aceptar el token. Un <code>/logout</code> deja el token inutilizable al instante en los seis.",
+      hl:["users","pedidos","pagos","redis"], accent:"redis",
+      pk:[{p:["users","redis"],l:"EXISTS jwt:revoked",d:700},
+          {p:["pedidos","redis"],l:"",d:700,d0:150},
+          {p:["pagos","redis"],l:"",d:700,d0:300},
+          {p:["redis","users"],l:"no revocado",d:700,d0:900}] },
+
+    { t:"Si Redis cae, la autorización es fail-CLOSED (503)",
+      d:"Para sesión, revocación y autorización, «no pude comprobar» <b>no</b> es «está bien»: el servicio responde <b>503</b> en lugar de aceptar un token posiblemente revocado. El servicio sigue vivo; falla su dependencia.",
+      hl:["redis","users","pedidos"], accent:"redis", danger:true,
+      pk:[{p:["users","redis"],l:"✕ sin respuesta",d:800}] },
+
+    { t:"El catálogo se cachea en Redis: fail-OPEN",
+      d:"Las lecturas públicas y estables (libros, autores) se cachean con TTL corto bajo <code>books:list:…</code> y <code>autores:list:…</code>. Si Redis cae, la lectura se sirve desde PostgreSQL: el caché es opcional por diseño.",
+      hl:["books","autores","redis"], accent:"books",
+      pk:[{p:["books","redis"],l:"cache SET",d:750},
+          {p:["autores","redis"],l:"cache SET",d:750,d0:200},
+          {p:["redis","books"],l:"cache HIT",d:750,d0:900}] },
+
+    { t:"POST /pedidos descuenta el stock en una transacción",
+      d:"El descuento es <b>condicional</b>: <code>UPDATE books SET stock = stock - n WHERE id=? AND stock &gt;= n</code>. Si no alcanza, se lanza 409 y el pedido entero se revierte: no queda stock descontado de más.",
+      hl:["pedidos","postgres"], accent:"pedidos",
+      pk:[{p:["client","pedidos"],l:"lineas:[…]",d:800},
+          {p:["pedidos","postgres"],l:"UPDATE stock … WHERE stock>=n",d:950,d0:600}] },
+
+    { t:"POST /pagos cobra y marca «Pagado» en la MISMA transacción",
+      d:"Insertar el pago y pasar el pedido a <code>Pagado</code> ocurren juntos: o se cobra y el pedido queda pagado, o no pasa ninguna de las dos. Los dos servicios comparten base, así que coordina PostgreSQL.",
+      hl:["pagos","pedidos","postgres"], accent:"pagos",
+      pk:[{p:["client","pagos"],l:"POST /pagos",d:800},
+          {p:["pagos","postgres"],l:"INSERT pago + estado=Pagado",d:1000,d0:600}] },
+
+    { t:"/logout revoca el jti: los 6 servicios rechazan el token",
+      d:"<code>/logout</code> escribe <code>jwt:revoked:&lt;jti&gt;</code> con TTL igual a la vida restante del token y borra sesión y refresh. Desde ese momento, cualquier servicio responde <b>401 TOKEN_REVOKED</b>.",
+      hl:["login","redis","books","users","autores","pedidos","pagos"], accent:"redis",
+      pk:[{p:["client","login"],l:"POST /logout",d:700},
+          {p:["login","redis"],l:"SET jwt:revoked:jti",d:800,d0:500},
+          {p:["redis","users"],l:"",d:700,d0:1200},
+          {p:["redis","pedidos"],l:"",d:700,d0:1300},
+          {p:["redis","pagos"],l:"",d:700,d0:1400}] }
+  ];
+
+  var idx = 0, playing = true, speed = 1, tStart = 0, timer = null;
+  var BASE_MS = 4200;
+
+  var elTitle = document.getElementById("stepTitle");
+  var elText  = document.getElementById("stepText");
+  var elKick  = document.getElementById("kicker");
+  var elBar   = document.getElementById("bar");
+  var dotsBox = document.getElementById("dots");
+
+  STEPS.forEach(function(_, i){
+    var d = document.createElement("i");
+    d.addEventListener("click", function(){ go(i); });
+    dotsBox.appendChild(d);
+  });
+
+  function clearHL(){
+    Array.prototype.forEach.call(document.querySelectorAll(".node"), function(n){
+      n.classList.remove("active"); n.classList.remove("danger");
+      n.classList.remove("showtag");
+    });
+    Array.prototype.forEach.call(svg.querySelectorAll("line"), function(l){
+      l.classList.remove("hot");
+    });
+  }
+
+  function render(i){
+    var s = STEPS[i];
+    elKick.textContent = "Paso " + (i+1) + " de " + STEPS.length;
+    elTitle.textContent = s.t;
+    elText.innerHTML = s.d;
+    Array.prototype.forEach.call(dotsBox.children, function(d,k){
+      d.classList.toggle("on", k === i);
+    });
+
+    clearHL();
+    clearPackets();
+    stage.style.setProperty("--accent", COLORS[s.accent] || "#7c5cff");
+    (s.hl||[]).forEach(function(id){
+      var el = document.getElementById("n-"+id);
+      if(el){ el.classList.add("active"); el.classList.add("showtag");
+        if(s.danger && id==="redis") el.classList.add("danger"); }
+    });
+    (s.pk||[]).forEach(function(p){
+      var color = COLORS[p.p[0]] || "#7c5cff";
+      spawnPacket(p.p, color, p.l, (p.d||850)/speed, (p.d0||0)/speed);
+      for(var k=0;k<p.p.length-1;k++) hotLink(p.p[k], p.p[k+1], true);
+    });
+    // apaga el resaltado de enlaces al terminar los paquetes
+    setTimeout(function(){
+      Array.prototype.forEach.call(svg.querySelectorAll("line.hot"), function(l){
+        l.classList.remove("hot");
+      });
+    }, (s.dur || 2400)/speed);
+
+    tStart = performance.now();
+    elBar.style.transition = "none";
+    elBar.style.width = "0%";
+    void elBar.offsetWidth;
+    if(playing){
+      elBar.style.transition = "width " + (BASE_MS/speed) + "ms linear";
+      elBar.style.width = "100%";
+    }
+  }
+
+  function schedule(){
+    clearTimeout(timer);
+    if(!playing) return;
+    timer = setTimeout(function(){
+      idx = (idx + 1) % STEPS.length;
+      render(idx);
+      schedule();
+    }, BASE_MS/speed);
+  }
+
+  function go(i){
+    idx = ((i % STEPS.length) + STEPS.length) % STEPS.length;
+    render(idx);
+    schedule();
+  }
+
+  document.getElementById("btnPlay").addEventListener("click", function(){
+    playing = !playing;
+    this.textContent = playing ? "⏸ Pausar" : "▶ Reproducir";
+    render(idx); schedule();
+  });
+  document.getElementById("btnNext").addEventListener("click", function(){ go(idx+1); });
+  document.getElementById("btnPrev").addEventListener("click", function(){ go(idx-1); });
+  document.getElementById("btnSpeed").addEventListener("click", function(){
+    speed = speed >= 2 ? 0.5 : (speed === 1 ? 1.5 : (speed === 1.5 ? 2 : 1));
+    this.textContent = "Velocidad " + speed + "×";
+    render(idx); schedule();
+  });
+
+  function boot(){
+    place(); drawLinks(); render(0); schedule();
+    requestAnimationFrame(tick);
+  }
+  window.addEventListener("resize", function(){ place(); drawLinks(); });
+  if(document.readyState === "complete") boot();
+  else window.addEventListener("load", boot);
+})();
+</script>
+</body>
+</html>

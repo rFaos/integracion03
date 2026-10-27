@@ -5,3 +5,7 @@ flask-cors>=4.0.0
 flasgger>=0.9.7.1
 bcrypt>=4.1.0
 gunicorn>=21.2.0
+# Capa compartida de estado: sesiones, revocación de JWT y caché del catálogo.
+redis>=5.0,<6.0
+# Solo para las pruebas (tests/redis_selftest.py) sin servidor Redis.
+fakeredis>=2.20

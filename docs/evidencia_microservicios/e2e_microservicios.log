@@ -1,0 +1,82 @@
+E2E DE LOS 4 MICROSERVICIOS NUEVOS (login real + PostgreSQL real)
+
+== 0. Carga de los servicios ==
+  [OK  ] cargado el servicio 'login'
+  [OK  ] cargado el servicio 'users'
+  [OK  ] cargado el servicio 'autores'
+  [OK  ] cargado el servicio 'pedidos'
+  [OK  ] cargado el servicio 'pagos'
+  [OK  ] Redis compartido por los 5 servicios
+
+== 1. Login real (el token no se fabrica en la prueba) ==
+  [OK  ] el token de admin trae role_id = 1  -> role_id=1
+  [OK  ] el token trae jti (revocable)
+  [OK  ] se obtuvo tambien un token de usuario normal
+
+== 2. Microservicio users (5002) ==
+  [OK  ] users /health -> 200  -> HTTP 200
+  [OK  ] users: esquema listo
+  [OK  ] users: sin token -> 401  -> HTTP 401
+  [OK  ] users: rol Usuario -> 403  -> HTTP 403
+  [OK  ] users: rol Administrador -> 200  -> HTTP 200
+  [OK  ] users: crear -> 201  -> HTTP 201 
+  [OK  ] users: no se filtra password_hash
+  [OK  ] users: PATCH parcial -> 200  -> HTTP 200
+
+== 3. Microservicio autores (5003) ==
+  [OK  ] autores /health -> 200  -> HTTP 200
+  [OK  ] autores: GET es PUBLICO (sin token) -> 200  -> HTTP 200
+  [OK  ] autores: primera lectura es miss
+  [OK  ] autores: segunda lectura es HIT de cache
+  [OK  ] autores: POST sin token -> 401  -> HTTP 401
+  [OK  ] autores: POST con rol Usuario -> 403  -> HTTP 403
+  [OK  ] autores: crear con admin -> 201  -> HTTP 201
+  [OK  ] autores: asociar libros -> 200  -> HTTP 200 
+  [OK  ] autores: la relacion quedo guardada (2 libros)  -> count=2
+
+== 4. Microservicio pedidos (5004) - stock transaccional ==
+  [OK  ] pedidos /health -> 200  -> HTTP 200
+  [OK  ] pedidos: esquema listo
+  [OK  ] pedidos: sin token -> 401  -> HTTP 401
+  [OK  ] pedidos: crear -> 201  -> HTTP 201 
+  [OK  ] pedidos: arranca en estado 'Pendiente'  -> Pendiente
+  [OK  ] pedidos: el total lo calculo PostgreSQL  -> total=99.0
+  [OK  ] pedidos: stock insuficiente -> 409  -> HTTP 409 INSUFFICIENT_STOCK
+  [OK  ] pedidos: el error dice cuanto hay disponible  -> 10
+  [OK  ] pedidos: transicion invalida Pendiente->Enviado -> 409  -> HTTP 409 INVALID_TRANSITION
+  [OK  ] pedidos: transicion valida Pendiente->Confirmado -> 200  -> HTTP 200
+  [OK  ] pedidos: el dueno ve su pedido -> 200  -> HTTP 200
+
+== 5. Microservicio pagos (5005) - atomicidad pago + estado ==
+  [OK  ] pagos /health -> 200  -> HTTP 200
+  [OK  ] pagos: registrar pago -> 201  -> HTTP 201 
+  [OK  ] pagos: el pedido paso a 'Pagado' en la MISMA transaccion  -> Pagado
+  [OK  ] pagos: el monto por omision es el total del pedido  -> monto=99.0
+  [OK  ] pagos: el cambio de estado es visible desde el servicio de PEDIDOS  -> Pagado
+  [OK  ] pagos: no se puede cobrar dos veces -> 409  -> HTTP 409 ORDER_NOT_PAYABLE
+  [OK  ] pagos: historial del pedido -> 200  -> HTTP 200
+  [OK  ] pagos: un usuario solo ve sus propios pagos -> 200  -> HTTP 200
+
+== 6. Revocacion: /logout y los 4 servicios rechazan el token ==
+  [OK  ] login: /logout -> 200  -> HTTP 200
+  [OK  ] login: el jti quedo revocado en Redis
+  [OK  ] users rechaza el token revocado -> 401 TOKEN_REVOKED  -> HTTP 401 code=TOKEN_REVOKED
+  [OK  ] autores rechaza el token revocado -> 401 TOKEN_REVOKED  -> HTTP 401 code=TOKEN_REVOKED
+  [OK  ] pedidos rechaza el token revocado -> 401 TOKEN_REVOKED  -> HTTP 401 code=TOKEN_REVOKED
+  [OK  ] pagos rechaza el token revocado -> 401 TOKEN_REVOKED  -> HTTP 401 code=TOKEN_REVOKED
+
+== 7. Redis caido: 503 en los servicios que dependen de la revocacion ==
+  [OK  ] pedidos con Redis caido -> 503 (fail-closed)  -> HTTP 503
+  [OK  ] users con Redis caido -> 503 (fail-closed)  -> HTTP 503
+  [OK  ] autores: la lectura PUBLICA sigue funcionando sin Redis (fail-open)  -> HTTP 200
+
+== Limpieza de los datos de prueba ==
+  [OK  ] tras el /logout se puede volver a iniciar sesion
+  [OK  ] pedido de prueba cancelado  -> HTTP 200
+  [OK  ] autor de prueba eliminado  -> HTTP 200 
+  [OK  ] usuario de prueba eliminado  -> HTTP 200 
+
+====================================================================
+RESULTADO: 58/58 comprobaciones OK.
+Los 4 microservicios verificados con login real, JWT compartido y
+revocacion propagada por Redis.

@@ -19,8 +19,8 @@
     <div class="brand-wrapper">
       <div class="brand-icon">📚</div>
       <div>
-        <h1 class="brand-title">Catálogo de Libros en Nube</h1>
-        <p class="brand-subtitle">Cliente Windows 11 Electron • Consumo Exclusivo en XML (UDEM SC-2236)</p>
+        <h1 class="brand-title">Catálogo de Libros</h1>
+        <p class="brand-subtitle">Cliente Electron · Consumo XML · UDEM SC-2236</p>
       </div>
     </div>
     <div class="header-actions">
@@ -33,6 +33,12 @@
       </button>
       <button id="btnReload" class="btn btn-primary" title="Cargar por petición">
         🔄 Recargar
+      </button>
+      <button id="btnDiscover" class="btn btn-discover" title="Descubre tu perfil lector">
+        ✨ Para ti
+      </button>
+      <button id="btnToggleChat" class="btn btn-outline" title="Asistente del catálogo (IA local)">
+        💬 Asistente
       </button>
     </div>
   </header>
@@ -122,6 +128,32 @@
     </div>
   </div>
 
+  <!-- Asistente del catálogo (IA local vía Ollama, Fase 1) -->
+  <section id="chatPanel" class="chat-panel">
+    <div class="chat-header">
+      <div class="chat-title">
+        <span class="chat-avatar">🤖</span>
+        <div>
+          <strong>Asistente del catálogo</strong>
+          <span class="chat-model">qwen2.5:7b · IA local</span>
+        </div>
+      </div>
+      <button id="btnCloseChat" class="chat-close" type="button" title="Cerrar">&times;</button>
+    </div>
+    <div id="chatLog" class="chat-log"></div>
+    <div id="chatSuggestions" class="chat-suggestions"></div>
+    <form id="chatForm" class="chat-form">
+      <input type="text" id="chatInput" class="chat-input" placeholder="Pregunta por un libro, autor o género..." autocomplete="off">
+      <button id="chatSend" type="submit" class="btn btn-primary btn-sm">Enviar</button>
+    </form>
+  </section>
+
+  <!-- Fase 2: perfil lector generado por IA (sin que el usuario pregunte nada) -->
+  <button id="discoverPill" class="discover-pill" type="button" hidden>✨ Tu perfil lector está listo</button>
+  <div id="discoverModal" class="discover-overlay" hidden>
+    <div id="discoverSheet" class="discover-sheet" role="dialog" aria-label="Tu perfil lector"></div>
+  </div>
+
   <!-- Footer -->
   <footer class="app-footer">
     <p>Catálogo de Libros en Electron (Windows 11) • Integración de Aplicaciones Computacionales (SC-2236)</p>
@@ -129,5 +161,7 @@
   </footer>
 
   <script src="renderer.js"></script>
+  <script src="chat.js"></script>
+  <script src="discover.js"></script>
 </body>
 </html>

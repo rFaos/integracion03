@@ -148,7 +148,8 @@ async function loadCatalogOnDemand() {
 
     statusIndicator.className = "status-indicator online";
     const modo = config.token ? "con JWT" : "lectura pública (sin token)";
-    statusText.textContent = `Online: ${allBooksFromXml.length} libros (XML) · ${modo}`;
+    statusText.textContent = `${allBooksFromXml.length} libros en línea`;
+    statusIndicator.title = `Catálogo XML · ${modo}`;
 
     renderCatalog();
     showToast(`Se cargaron ${allBooksFromXml.length} libros en formato XML (${modo}).`, "success");
@@ -282,7 +283,7 @@ function renderCatalog() {
       }
 
       return `
-        <article class="book-card">
+        <article class="book-card" data-isbn="${book.isbn}">
           <div class="card-media">
             <img class="card-img" 
                  src="${book.coverImage}" 

@@ -53,16 +53,23 @@ from psycopg.errors import UniqueViolation, ForeignKeyViolation, CheckViolation
 # Verificador JWT propio (copia deliberada: ver el encabezado de jwt_auth.py).
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import jwt_auth  # noqa: E402
+import redis_layer  # noqa: E402  (capa compartida: revocación de JWT y caché)
 
 # 1. Cargar variables de entorno desde el archivo .env local
 load_dotenv()
 
 app = Flask(__name__)
 
-# 2. Configurar CORS para permitir invocaciones cross-origin.
+# 2. Configurar CORS para permitir invocaciones cross-origin, acotado a los
+#    orígenes de las aplicaciones cliente (el enunciado pide NO usar "*").
 #    Se expone WWW-Authenticate para que un cliente de navegador pueda leer el
 #    motivo del 401 (por defecto, las cabeceras no simples se ocultan).
-CORS(app, resources={r"/*": {"origins": "*"}}, expose_headers=["WWW-Authenticate"])
+DEFAULT_CORS_ORIGINS = (
+    "http://localhost:3000,http://127.0.0.1:3000,http://34.51.29.27:3000"
+)
+CORS_ORIGINS = [o.strip() for o in
+                os.getenv("CORS_ORIGINS", DEFAULT_CORS_ORIGINS).split(",") if o.strip()]
+CORS(app, resources={r"/*": {"origins": CORS_ORIGINS}}, expose_headers=["WWW-Authenticate"])
 
 # ==============================================================================
 # 2.b AUTORIZACIÓN POR JWT (nuevo requerimiento)
@@ -191,6 +198,22 @@ def enforce_jwt():
     except jwt_auth.JWTError as exc:
         return unauthorized(exc.code, exc.message, exc.status)
 
+    # --- Lista de revocación compartida (jwt:revoked:<jti>) -------------------
+    # Se comprueba en CADA servicio antes de aceptar el token: es lo que hace
+    # que un /logout tenga efecto inmediato aquí, sin esperar a que el JWT
+    # expire. Si Redis no responde se responde 503 (fail-closed): no se puede
+    # demostrar que el token sigue vigente, así que no se autoriza la escritura.
+    try:
+        if redis_layer.is_revoked(claims.get("jti")):
+            return unauthorized(
+                "TOKEN_REVOKED",
+                "El token fue revocado (sesión cerrada). Inicia sesión de nuevo.",
+            )
+    except redis_layer.RedisUnavailable as exc:
+        resp = error_response(str(exc), code=exc.code, status=exc.status)
+        resp.headers["Retry-After"] = "5"
+        return resp
+
     # El token queda disponible para el endpoint (auditoría, trazabilidad).
     g.jwt_claims = claims
     return None
@@ -201,6 +224,15 @@ def announce_jwt(response):
     """Cabeceras informativas de la seguridad activa (útiles para depurar y auditar)."""
     response.headers["X-Auth-Scheme"] = "JWT %s" % JWT_ALGORITHM
     response.headers["X-Public-Methods"] = "GET, HEAD, OPTIONS"
+
+    # --- Invalidación del caché (capa Redis) ---------------------------------
+    # Igual que la autorización se decide por MÉTODO y no por ruta, la
+    # invalidación también: cualquier POST/PUT/PATCH/DELETE que haya terminado
+    # bien borra TODO el caché del catálogo (books:list:* y books:<isbn>). Así
+    # queda cubierto de una sola vez cada alias de escritura (/api/book/insert,
+    # /api/book/update, /api/book/patch, /api/book/delete) sin enumerarlos.
+    if request.method in ("POST", "PUT", "PATCH", "DELETE") and response.status_code < 400:
+        response.headers["X-Cache-Invalidated"] = str(redis_layer.invalidate_books())
     return response
 
 
@@ -565,6 +597,11 @@ def health_check():
                         "secret_fingerprint": (hashlib.sha256(JWT_SECRET.encode()).hexdigest()[:12]
                                                if JWT_SECRET else None),
                     },
+                    # Capa compartida: URL enmascarada (nunca la contraseña) y
+                    # sonda real de PING. Si `reachable` es false, las ESCRITURAS
+                    # responden 503 (fail-closed) y las lecturas siguen por
+                    # PostgreSQL sin caché (fail-open).
+                    "redis": redis_layer.health(),
                 }), 200
     except Exception as e:
         return jsonify({
@@ -647,6 +684,18 @@ def get_books():
     format_type = request.args.get("format", "JSON").strip().upper()
     isbn_param = request.args.get("isbn")
 
+    # --- Caché del catálogo (capa Redis) --------------------------------------
+    # Clave: books:list:<filtros>  (los filtros se ordenan, así que
+    # /books?isbn=X y /books (sin filtro) no se pisan).
+    # Si Redis no responde, cache_get devuelve None y se sigue a PostgreSQL:
+    # las lecturas cacheadas son OPCIONALES por diseño (fail-open).
+    cache_key = redis_layer.books_list_key({"isbn": isbn_param.strip()} if isbn_param else None)
+    cached = redis_layer.cache_get(cache_key)
+    if cached is not None:
+        if format_type == "XML":
+            return Response(serialize_books_to_xml(cached), status=200, mimetype="application/xml")
+        return jsonify({"count": len(cached), "books": cached, "cache": "hit"}), 200
+
     query_base = """
         SELECT 
             b.id,
@@ -693,6 +742,10 @@ def get_books():
                 cur.execute(query_base, tuple(params) if params else None)
                 books = cur.fetchall()
                 serialized = serialize_record(books)
+
+                # Se guarda en Redis con TTL corto. Si falla, no pasa nada: el
+                # caché es una optimización, nunca una dependencia.
+                redis_layer.cache_set(cache_key, serialized)
 
                 if format_type == "XML":
                     xml_content = serialize_books_to_xml(serialized)
@@ -746,6 +799,18 @@ def get_book_by_isbn(isbn):
     """
     format_type = request.args.get("format", "JSON").strip().upper()
     wrap_lib = request.args.get("wrap", "").strip().lower() == "library" or request.args.get("root", "").strip().lower() == "library"
+
+    # --- Caché del catálogo (capa Redis). Clave: books:<isbn> -----------------
+    # Se cachea el DATO, no el formato: así la misma entrada sirve para JSON y
+    # para XML (wrap_library solo cambia el envoltorio, no el contenido).
+    cache_key = redis_layer.book_key(isbn)
+    cached = redis_layer.cache_get(cache_key)
+    if cached is not None:
+        if format_type == "XML":
+            return Response(serialize_single_book_to_xml(cached, wrap_library=wrap_lib),
+                            status=200, mimetype="application/xml")
+        return jsonify(cached), 200
+
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
@@ -826,6 +891,9 @@ def get_book_by_isbn(isbn):
                 full_book["images"] = images
                 full_book["concepts"] = concepts
                 serialized = serialize_record(full_book)
+
+                # TTL corto; si Redis no responde, cache_set es un no-op.
+                redis_layer.cache_set(cache_key, serialized)
 
                 if format_type == "XML":
                     xml_content = serialize_single_book_to_xml(serialized, wrap_library=wrap_lib)

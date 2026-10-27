@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evidencia E2E &mdash; Microservicios Library</title>
+<style>
+  :root {
+    --tinta:#1c2230; --suave:#5b6675; --linea:#e3e7ee;
+    --fondo:#f6f8fb; --panel:#ffffff; --ok:#0f8a4d; --bad:#c0392b;
+    --acento:#2b5cd9;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; padding:48px 24px; background:var(--fondo); color:var(--tinta);
+    font:15px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  .hoja { max-width:900px; margin:0 auto; }
+  header {
+    border-bottom:3px solid var(--acento); padding-bottom:20px; margin-bottom:28px;
+  }
+  h1 { margin:0 0 6px; font-size:26px; letter-spacing:-.02em; }
+  .sub { color:var(--suave); font-size:14px; }
+  .kpis { display:flex; gap:14px; flex-wrap:wrap; margin:24px 0 32px; }
+  .kpi {
+    flex:1 1 150px; background:var(--panel); border:1px solid var(--linea);
+    border-radius:10px; padding:16px 18px;
+  }
+  .kpi b { display:block; font-size:28px; line-height:1.1; }
+  .kpi span { color:var(--suave); font-size:12.5px; text-transform:uppercase;
+               letter-spacing:.06em; }
+  .kpi.ok b { color:var(--ok); }
+  .kpi.bad b { color:var(--bad); }
+  section {
+    background:var(--panel); border:1px solid var(--linea); border-radius:10px;
+    padding:6px 18px 14px; margin-bottom:16px;
+  }
+  h2 {
+    font-size:15px; margin:14px 0 10px; display:flex; align-items:center; gap:10px;
+  }
+  h2 .n {
+    background:var(--acento); color:#fff; font-size:11.5px; font-weight:600;
+    border-radius:20px; padding:1px 9px;
+  }
+  table { width:100%; border-collapse:collapse; }
+  td { padding:6px 4px; border-top:1px solid var(--linea); vertical-align:top;
+        font-size:13.5px; }
+  td.ic { width:22px; text-align:center; font-weight:700; }
+  tr.ok td.ic { color:var(--ok); }
+  tr.bad td.ic { color:var(--bad); }
+  .det {
+    display:inline-block; margin-left:8px; color:var(--suave);
+    font-family:"Cascadia Code",Consolas,monospace; font-size:12px;
+  }
+  footer { color:var(--suave); font-size:12.5px; margin-top:28px; }
+  code { background:#eef1f6; padding:1px 5px; border-radius:4px;
+          font-size:12.5px; }
+  @media print {
+    body { background:#fff; padding:0; }
+    section, .kpi { break-inside:avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="hoja">
+  <header>
+    <h1>Evidencia de integración &mdash; 4 microservicios nuevos</h1>
+    <div class="sub">
+      Fabián Azaed Orta Singlaterry &middot; matrícula 613504 &middot; UDEM SC-2236<br>
+      Prueba extremo a extremo con <strong>login real</strong>, PostgreSQL real y
+      Redis compartido. Generado el 2026-10-06 17:00.
+    </div>
+  </header>
+
+  <div class="kpis">
+    <div class="kpi ok"><b>58/58</b><span>Comprobaciones OK</span></div>
+    <div class="kpi"><b>4</b><span>Servicios nuevos</span></div>
+    <div class="kpi bad"><b>0</b><span>Fallos</span></div>
+    <div class="kpi"><b>5</b><span>Servicios con Redis</span></div>
+  </div>
+
+  <p style="color:var(--suave);font-size:13.5px">
+    La prueba no fabrica tokens: hace <code>POST /login</code> contra el servicio
+    real (con CAPTCHA), obtiene un JWT y lo usa contra los cuatro servicios. La
+    revocación se propaga por Redis y la política de fallo se comprueba apagando
+    Redis a propósito.
+  </p>
+
+  <section><h2>Carga de los servicios<span class="n">6</span></h2><table><tbody><tr class="ok"><td class="ic">&#10003;</td><td>cargado el servicio &#x27;login&#x27;</td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>cargado el servicio &#x27;users&#x27;</td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>cargado el servicio &#x27;autores&#x27;</td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>cargado el servicio &#x27;pedidos&#x27;</td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>cargado el servicio &#x27;pagos&#x27;</td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>Redis compartido por los 5 servicios</td></tr></tbody></table></section><section><h2>Login real<span class="n">3</span></h2><table><tbody><tr class="ok"><td class="ic">&#10003;</td><td>el token de admin trae role_id = 1<span class="det">role_id=1</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>el token trae jti (revocable)</td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>se obtuvo tambien un token de usuario normal</td></tr></tbody></table></section><section><h2>Servicio de usuarios (5002)<span class="n">8</span></h2><table><tbody><tr class="ok"><td class="ic">&#10003;</td><td>users /health -&gt; 200<span class="det">HTTP 200</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>users: esquema listo</td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>users: sin token -&gt; 401<span class="det">HTTP 401</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>users: rol Usuario -&gt; 403<span class="det">HTTP 403</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>users: rol Administrador -&gt; 200<span class="det">HTTP 200</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>users: crear -&gt; 201<span class="det">HTTP 201</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>users: no se filtra password_hash</td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>users: PATCH parcial -&gt; 200<span class="det">HTTP 200</span></td></tr></tbody></table></section><section><h2>Servicio de autores (5003)<span class="n">9</span></h2><table><tbody><tr class="ok"><td class="ic">&#10003;</td><td>autores /health -&gt; 200<span class="det">HTTP 200</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>autores: GET es PUBLICO (sin token) -&gt; 200<span class="det">HTTP 200</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>autores: primera lectura es miss</td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>autores: segunda lectura es HIT de cache</td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>autores: POST sin token -&gt; 401<span class="det">HTTP 401</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>autores: POST con rol Usuario -&gt; 403<span class="det">HTTP 403</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>autores: crear con admin -&gt; 201<span class="det">HTTP 201</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>autores: asociar libros -&gt; 200<span class="det">HTTP 200</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>autores: la relacion quedo guardada (2 libros)<span class="det">count=2</span></td></tr></tbody></table></section><section><h2>Servicio de pedidos (5004)<span class="n">11</span></h2><table><tbody><tr class="ok"><td class="ic">&#10003;</td><td>pedidos /health -&gt; 200<span class="det">HTTP 200</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>pedidos: esquema listo</td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>pedidos: sin token -&gt; 401<span class="det">HTTP 401</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>pedidos: crear -&gt; 201<span class="det">HTTP 201</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>pedidos: arranca en estado &#x27;Pendiente&#x27;<span class="det">Pendiente</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>pedidos: el total lo calculo PostgreSQL<span class="det">total=99.0</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>pedidos: stock insuficiente -&gt; 409<span class="det">HTTP 409 INSUFFICIENT_STOCK</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>pedidos: el error dice cuanto hay disponible<span class="det">10</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>pedidos: transicion invalida Pendiente-&gt;Enviado -&gt; 409<span class="det">HTTP 409 INVALID_TRANSITION</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>pedidos: transicion valida Pendiente-&gt;Confirmado -&gt; 200<span class="det">HTTP 200</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>pedidos: el dueno ve su pedido -&gt; 200<span class="det">HTTP 200</span></td></tr></tbody></table></section><section><h2>Servicio de pagos (5005)<span class="n">8</span></h2><table><tbody><tr class="ok"><td class="ic">&#10003;</td><td>pagos /health -&gt; 200<span class="det">HTTP 200</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>pagos: registrar pago -&gt; 201<span class="det">HTTP 201</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>pagos: el pedido paso a &#x27;Pagado&#x27; en la MISMA transaccion<span class="det">Pagado</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>pagos: el monto por omision es el total del pedido<span class="det">monto=99.0</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>pagos: el cambio de estado es visible desde el servicio de PEDIDOS<span class="det">Pagado</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>pagos: no se puede cobrar dos veces -&gt; 409<span class="det">HTTP 409 ORDER_NOT_PAYABLE</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>pagos: historial del pedido -&gt; 200<span class="det">HTTP 200</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>pagos: un usuario solo ve sus propios pagos -&gt; 200<span class="det">HTTP 200</span></td></tr></tbody></table></section><section><h2>Revocación del token<span class="n">6</span></h2><table><tbody><tr class="ok"><td class="ic">&#10003;</td><td>login: /logout -&gt; 200<span class="det">HTTP 200</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>login: el jti quedo revocado en Redis</td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>users rechaza el token revocado -&gt; 401 TOKEN_REVOKED<span class="det">HTTP 401 code=TOKEN_REVOKED</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>autores rechaza el token revocado -&gt; 401 TOKEN_REVOKED<span class="det">HTTP 401 code=TOKEN_REVOKED</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>pedidos rechaza el token revocado -&gt; 401 TOKEN_REVOKED<span class="det">HTTP 401 code=TOKEN_REVOKED</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>pagos rechaza el token revocado -&gt; 401 TOKEN_REVOKED<span class="det">HTTP 401 code=TOKEN_REVOKED</span></td></tr></tbody></table></section><section><h2>Redis caído (política de fallo)<span class="n">3</span></h2><table><tbody><tr class="ok"><td class="ic">&#10003;</td><td>pedidos con Redis caido -&gt; 503 (fail-closed)<span class="det">HTTP 503</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>users con Redis caido -&gt; 503 (fail-closed)<span class="det">HTTP 503</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>autores: la lectura PUBLICA sigue funcionando sin Redis (fail-open)<span class="det">HTTP 200</span></td></tr></tbody></table></section><section><h2>Limpieza de datos de prueba<span class="n">4</span></h2><table><tbody><tr class="ok"><td class="ic">&#10003;</td><td>tras el /logout se puede volver a iniciar sesion</td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>pedido de prueba cancelado<span class="det">HTTP 200</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>autor de prueba eliminado<span class="det">HTTP 200</span></td></tr>
+<tr class="ok"><td class="ic">&#10003;</td><td>usuario de prueba eliminado<span class="det">HTTP 200</span></td></tr></tbody></table></section>
+
+  <footer>
+    Fuente: <code>tests/e2e_microservicios.py</code> &middot;
+    log: <code>e2e_microservicios.log</code>.<br>
+    El mismo comando que genera este informe es reproducible con
+    <code>apps/services/login/venv/Scripts/python.exe tests/e2e_microservicios.py</code>.
+  </footer>
+</div>
+</body>
+</html>

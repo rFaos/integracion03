@@ -20,6 +20,7 @@ import tkinter as tk
 import traceback
 from tkinter import ttk
 
+from core.config import SERVICE_KEYS, SERVICE_LABELS
 from core.errors import ApiError
 from core.health_service import STATE_COLORS, STATE_LABELS
 
@@ -81,7 +82,8 @@ class AppWindow(tk.Tk):
         brand.pack(side="left")
         tk.Label(brand, text="Biblioteca UDEM", bg=COLORS["surface"], fg=COLORS["text"],
                  font=FONT_H1).pack(anchor="w")
-        tk.Label(brand, text="Cliente de escritorio de los microservicios de Login y Libros",
+        tk.Label(brand, text="Cliente de escritorio de los microservicios "
+                             "(Login, Libros, Usuarios, Autores, Pedidos y Pagos)",
                  bg=COLORS["surface"], fg=COLORS["muted"], font=FONT_SMALL).pack(anchor="w")
 
         # --- zona derecha: semaforos y sesion ---------------------------------
@@ -93,9 +95,9 @@ class AppWindow(tk.Tk):
         tk.Label(lights, text="Estado de los servicios", bg=COLORS["surface"],
                  fg=COLORS["muted"], font=FONT_SMALL).pack(anchor="w")
         self.lights = {}
-        for service in ("login", "books"):
-            light = StatusLight(lights, service,
-                                "Login" if service == "login" else "Libros",
+        for service in SERVICE_KEYS:
+            short = SERVICE_LABELS[service].replace("Microservicio de ", "")
+            light = StatusLight(lights, service, short,
                                 on_click=lambda key: self.check_service_now(key),
                                 bg=COLORS["surface"])
             light.pack(anchor="w")
