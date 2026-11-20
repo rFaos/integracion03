@@ -56,3 +56,11 @@
 
 .server-pill { -fx-background-color: #ecfdf3; -fx-text-fill: #15803d; -fx-font-size: 11px;
                -fx-background-radius: 20; -fx-padding: 4 12; }
+
+/* ---------------------------------------------- servidor (IP del gateway) */
+.srv-box { -fx-background-color: #f8fafc; -fx-background-radius: 10; -fx-border-color: #e2e8f0;
+           -fx-border-radius: 10; -fx-padding: 10 12; }
+.srv-input { -fx-font-family: "Consolas"; }
+.srv-state { -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #6b7280; }
+.srv-ok { -fx-text-fill: #15803d; }
+.srv-down { -fx-text-fill: #b91c1c; }

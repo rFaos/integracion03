@@ -80,19 +80,25 @@ apps **solo cambian su URL base**.
 | WebSocket (rastreo GPS de la app Java) | `Upgrade`/`Connection` + `proxy_read_timeout 1h` en `/api/rastreo/` |
 | Seguridad | `server_tokens off`; en la VM los servicios escuchan solo en `127.0.0.1` |
 
-## 4. Cambios en cada app
+## 4. Cambios en cada app: una sola IP en la interfaz
 
-Solo cambió **la dirección**, ninguna lógica:
+Como todo pasa por el gateway, cada app solo necesita **una dirección: la IP del
+servidor**. El usuario la escribe en la interfaz y la app arma sola los endpoints
+`http://<IP>:8080/api/<servicio>`. Para pasar de local a Google Cloud basta con
+cambiar esa IP (se acepta `IP`, `IP:puerto` o una URL completa).
 
-| App | Archivo | Antes | Después |
+| App | Dónde se escribe la IP | Se guarda en | Endpoints que arma |
 |---|---|---|---|
-| Electron | `ElectronApp/renderer.js`, `index.html` | `http://127.0.0.1:5001` | `http://127.0.0.1:8080/api/books` |
-| Python/Tk | `Python_app/core/config.py` | 6 URLs `:5000`–`:5005` | 6 URLs `http://127.0.0.1:8080/api/<svc>`; nuevo `use_gateway`/`gateway_port` para que *Usar remoto* arme `http://<IP>:8080/api/<svc>` |
-| Java/JavaFX | `JavaDesktop_app/config.properties`, `ApiClient.java` | 7 URLs `:5000`–`:5006` | 7 URLs `http://127.0.0.1:8080/api/<svc>` (también el WebSocket) |
+| Electron | barra superior, campo **Servidor (IP del gateway)** | LocalStorage (`gateway_server`) | `http://<IP>:8080/api/books` + endpoint `/books` |
+| Python/Tk | *Configuración del servidor* → **IP del servidor (gateway)** (con vista previa de las 6 URL) | `runtime/config.json` (`gateway_host`) | `/api/{login,books,users,autores,pedidos,pagos}` |
+| Java/JavaFX | pantalla de acceso → **Servidor (IP del gateway)** + botón *Conectar* (indica Conectado / Sin respuesta) | `config.properties` (`gateway=`) | `/api/{login,books,users,autores,pedidos,pagos,rastreo}` (incluido el WebSocket) |
+
+Capturas: `evidencias/electron/02_ip_servidor.png`, `evidencias/python/03_ip_unica_gateway.png`,
+`evidencias/java/00_servidor_ip_gateway.png`.
 
 > Si la app Electron ya tenía guardada una URL vieja en LocalStorage, pulsa **Reset**.
-> En la app Python, si existe un `runtime/config.json` anterior, usa **Restablecer**
-> en *Configuración del servidor*.
+> En la app Python, si existe un `runtime/config.json` anterior, usa **Restaurar
+> predeterminados** en *Configuración del servidor*.
 
 ## 5. Ejecutar en local (Windows + Docker Desktop)
 
@@ -132,9 +138,9 @@ El script instala nginx, copia la configuración con `upstreams.local.conf`, val
 `BIND_HOST=127.0.0.1`. En el firewall de GCP se abre **solo `tcp:8080`** y se cierran
 las reglas de 5000–5006 (comandos `gcloud` en la cabecera del script).
 
-En las apps, solo se cambia el host:
-`http://<IP_EXTERNA_VM>:8080/api/<servicio>` (Electron: campo URL; Python: botón
-*Usar remoto*; Java: `config.properties`).
+En las apps solo se escribe la **IP externa de la VM** en el campo de servidor
+(Electron: barra superior; Python: *Configuración del servidor*; Java: pantalla de
+acceso). Los endpoints `http://<IP>:8080/api/<servicio>` se arman solos.
 
 ## 7. Pruebas y resultados
 

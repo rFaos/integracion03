@@ -360,11 +360,41 @@ public class Main extends Application {
         Label title = new Label("Library"); title.getStyleClass().add("brand");
         VBox head = new VBox(2, title, subtitle);
         HBox header = new HBox(14, logo, head); header.setAlignment(Pos.CENTER_LEFT);
-        Label server = new Label("●  Gateway  " + api.url("login").replaceAll("/api/login$", ""));
-        server.getStyleClass().add("server-pill");
-        HBox foot = new HBox(server); foot.setAlignment(Pos.CENTER);
+        // ---------- servidor: UNA sola direccion (la del gateway nginx)
+        // El usuario escribe la IP (local o la VM de Google Cloud) y la app arma
+        // sola <gateway>/api/login, /api/books, ... /api/rastreo.
+        TextField srv = new TextField(api.gateway().replaceFirst("^http://", "").replaceFirst(":8080$", ""));
+        srv.setPromptText("IP del servidor, p. ej. 34.51.29.27");
+        srv.getStyleClass().addAll("auth-input", "srv-input"); HBox.setHgrow(srv, Priority.ALWAYS);
+        Button connect = new Button("Conectar"); connect.getStyleClass().add("icon-btn");
+        Label srvState = new Label(); srvState.getStyleClass().add("srv-state");
+        Label routes = new Label(); routes.getStyleClass().add("hint"); routes.setWrapText(true);
+        Label srvTitle = new Label("Servidor (IP del gateway)"); srvTitle.getStyleClass().add("field-label");
+        Region srvGap = new Region(); HBox.setHgrow(srvGap, Priority.ALWAYS);
+        HBox srvHead = new HBox(srvTitle, srvGap, srvState); srvHead.setAlignment(Pos.CENTER_LEFT);
+        HBox srvRow = new HBox(8, srv, connect); srvRow.setAlignment(Pos.CENTER_LEFT);
+        VBox srvBox = new VBox(6, srvHead, srvRow, routes); srvBox.getStyleClass().add("srv-box");
 
-        VBox card = new VBox(18, header, seg, forms, captchaRow, msg, go, foot);
+        Runnable checkServer = () -> {
+            api.setGateway(srv.getText());
+            routes.setText("Endpoints: " + api.gateway() + "/api/{login, books, users, autores, pedidos, pagos, rastreo}");
+            srvState.getStyleClass().removeAll("srv-ok", "srv-down");
+            srvState.setText("Comprobando...");
+            Thread t = new Thread(() -> {
+                boolean alive = api.gatewayAlive();
+                Platform.runLater(() -> {
+                    srvState.setText(alive ? "● Conectado" : "● Sin respuesta");
+                    srvState.getStyleClass().add(alive ? "srv-ok" : "srv-down");
+                    if (alive) loadCaptcha.run();
+                    else { q.setText("Sin conexion"); captchaId[0] = null; }
+                });
+            }, "gw-check");
+            t.setDaemon(true); t.start();
+        };
+        connect.setOnAction(e -> checkServer.run());
+        srv.setOnAction(e -> checkServer.run());   // Enter en el campo
+
+        VBox card = new VBox(16, header, srvBox, seg, forms, captchaRow, msg, go);
         card.getStyleClass().addAll("card", "auth-card"); card.setMaxWidth(480);
         card.setMaxHeight(Region.USE_PREF_SIZE); card.setPadding(new Insets(32, 36, 26, 36));
         StackPane root = new StackPane(card); root.getStyleClass().add("login-bg");
@@ -376,6 +406,7 @@ public class Main extends Application {
 
         // ---------- modo evidencias: entra solo con el usuario de demo.properties
         boolean auto = EVID != null && notice == null;
+        if (EVID == null) { checkServer.run(); return; }
         async("Obtener CAPTCHA", api::captcha, c -> {
             captchaId[0] = Json.str(c.get("captcha_id")); q.setText(Json.str(c.get("question"))); ans.clear();
             if (auto) {

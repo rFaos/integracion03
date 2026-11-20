@@ -27,8 +27,27 @@
 // Sesion 08 - Reverse Proxy: la app ya NO habla directo con el puerto 5001,
 // sino con el gateway nginx (:8080). El prefijo /api/books lo quita nginx, asi
 // que el endpoint "/books" sigue siendo el mismo.
-//   Local: http://127.0.0.1:8080/api/books    GCP: http://<IP_VM>:8080/api/books
-const DEFAULT_BASE_URL = "http://127.0.0.1:8080/api/books";
+//
+// En la interfaz el usuario solo escribe UNA direccion: la IP del gateway
+// (127.0.0.1 en local, la IP externa de la VM en Google Cloud). La URL del
+// servicio se arma sola:  http://<IP>:8080/api/books
+const DEFAULT_SERVER = "127.0.0.1";
+const GATEWAY_PORT = 8080;
+const SERVICE_PREFIX = "/api/books";
+
+/**
+ * Convierte lo que escriba el usuario ("34.51.29.27", "34.51.29.27:8080",
+ * "http://mi-vm:8080/api/books") en la URL base del servicio de libros.
+ */
+function serviceBaseUrl(server) {
+  let s = (server || DEFAULT_SERVER).trim();
+  let scheme = "http";
+  const m = s.match(/^(https?):\/\//i);
+  if (m) { scheme = m[1].toLowerCase(); s = s.slice(m[0].length); }
+  let hostPort = s.split("/")[0] || DEFAULT_SERVER;
+  if (!hostPort.includes(":")) hostPort += ":" + GATEWAY_PORT;
+  return `${scheme}://${hostPort}${SERVICE_PREFIX}`;
+}
 const DEFAULT_ENDPOINT = "/books";
 
 // Estado de la Aplicación
@@ -42,16 +61,17 @@ let latestRawXml = "";
  * Carga la configuración persistente desde LocalStorage
  */
 function loadConfig() {
-  const savedBase = localStorage.getItem("catalog_api_base_url") || DEFAULT_BASE_URL;
+  const savedServer = localStorage.getItem("gateway_server") || DEFAULT_SERVER;
   const savedEndpoint = localStorage.getItem("catalog_api_endpoint") || DEFAULT_ENDPOINT;
   const savedToken = localStorage.getItem("catalog_api_token") || "";
 
-  document.getElementById("inputBaseUrl").value = savedBase;
+  document.getElementById("inputServer").value = savedServer;
   document.getElementById("inputEndpoint").value = savedEndpoint;
   document.getElementById("inputToken").value = savedToken;
 
   return {
-    baseUrl: savedBase.trim(),
+    server: savedServer.trim(),
+    baseUrl: serviceBaseUrl(savedServer),
     endpoint: savedEndpoint.trim(),
     token: savedToken.trim()
   };
@@ -61,20 +81,21 @@ function loadConfig() {
  * Guarda la configuración en LocalStorage
  */
 function saveConfig() {
-  const baseUrl = document.getElementById("inputBaseUrl").value.trim();
+  const server = document.getElementById("inputServer").value.trim();
   const endpoint = document.getElementById("inputEndpoint").value.trim();
   const token = document.getElementById("inputToken").value.trim();
 
-  if (!baseUrl || !endpoint) {
-    showToast("La URL y el EndPoint no pueden estar vacíos.", "error");
+  if (!server || !endpoint) {
+    showToast("La IP del servidor y el EndPoint no pueden estar vacíos.", "error");
     return;
   }
 
-  localStorage.setItem("catalog_api_base_url", baseUrl);
+  localStorage.setItem("gateway_server", server);
+  localStorage.removeItem("catalog_api_base_url");   // clave vieja (URL completa)
   localStorage.setItem("catalog_api_endpoint", endpoint);
   localStorage.setItem("catalog_api_token", token);
 
-  showToast("Configuración guardada en LocalStorage exitosamente.", "success");
+  showToast(`Servidor guardado: ${serviceBaseUrl(server)}`, "success");
   loadCatalogOnDemand();
 }
 
@@ -82,10 +103,11 @@ function saveConfig() {
  * Restablece la configuración por defecto
  */
 function resetConfig() {
+  localStorage.removeItem("gateway_server");
   localStorage.removeItem("catalog_api_base_url");
   localStorage.removeItem("catalog_api_endpoint");
   localStorage.removeItem("catalog_api_token");
-  document.getElementById("inputBaseUrl").value = DEFAULT_BASE_URL;
+  document.getElementById("inputServer").value = DEFAULT_SERVER;
   document.getElementById("inputEndpoint").value = DEFAULT_ENDPOINT;
   document.getElementById("inputToken").value = "";
   showToast("Configuración restablecida a valores por defecto.", "info");

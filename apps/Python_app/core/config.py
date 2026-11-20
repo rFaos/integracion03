@@ -56,6 +56,9 @@ DEFAULT_CONFIG = {
     # http://<remote_host>:<gateway_port>/api/<servicio>; con False vuelve al
     # esquema anterior de un puerto por servicio (remote_<svc>_port).
     "use_gateway": True,
+    # UNICA direccion que el usuario escribe: la IP (o nombre) del gateway.
+    # Las seis URL base se derivan de aqui como http://<gateway_host>:<gateway_port>/api/<svc>.
+    "gateway_host": "127.0.0.1",
     "gateway_port": 8080,
     "remote_host": "34.51.29.27",
     "remote_login_port": 5000,
@@ -102,6 +105,37 @@ def _as_float(value, default, minimum, maximum, field):
 
 def _as_int(value, default, minimum, maximum, field):
     return int(_as_float(value, default, minimum, maximum, field))
+
+
+def parse_gateway(text, default_port=8080):
+    """Interpreta lo que el usuario escribe como direccion del gateway.
+
+    Acepta "34.51.29.27", "34.51.29.27:8080" o "http://mi-vm:8080/api/login" y
+    devuelve (host, puerto). Lanza ConfigError si no hay host.
+    """
+    raw = (text or "").strip()
+    if "://" in raw:
+        raw = raw.split("://", 1)[1]
+    raw = raw.split("/", 1)[0].strip()
+    if not raw or " " in raw:
+        raise ConfigError("Escribe la IP o el nombre del servidor (gateway), por ejemplo 34.51.29.27")
+    host, port = raw, default_port
+    if ":" in raw:
+        host, port_text = raw.rsplit(":", 1)
+        try:
+            port = int(port_text)
+        except ValueError:
+            raise ConfigError("El puerto del gateway debe ser un numero, por ejemplo 34.51.29.27:8080")
+        if not 1 <= port <= 65535:
+            raise ConfigError("El puerto del gateway debe estar entre 1 y 65535.")
+    if not host:
+        raise ConfigError("Falta la IP del gateway.")
+    return host, port
+
+
+def gateway_urls(host, port, scheme="http"):
+    """Las seis URL base que se derivan de la direccion del gateway."""
+    return {svc: f"{scheme}://{host}:{port}/api/{svc}" for svc in SERVICE_KEYS}
 
 
 def validate_base_url(url, field):
@@ -177,6 +211,17 @@ class ConfigStore:
         if scheme not in ("http", "https"):
             raise ConfigError("El esquema debe ser 'http' o 'https'.")
 
+        # Modo gateway: el formulario solo trae la IP del gateway y de ahi salen
+        # las seis direcciones (las que se escriban aparte se ignoran).
+        gw_host = gw_port = None
+        if values.get("gateway_host") not in (None, ""):
+            gw_host, gw_port = parse_gateway(values["gateway_host"], self.get("gateway_port") or 8080)
+            values = {**values, **{f"{svc}_base_url": url
+                                   for svc, url in gateway_urls(gw_host, gw_port, scheme).items()}}
+            values.setdefault("remote_host", gw_host)
+            if not values.get("remote_host"):
+                values["remote_host"] = gw_host
+
         cleaned = {
             "scheme": scheme,
             "remote_host": (values.get("remote_host") or "").strip(),
@@ -202,6 +247,10 @@ class ConfigStore:
                 port_val, DEFAULT_CONFIG[f"remote_{svc}_port"],
                 1, 65535, f"Puerto remoto de {SERVICE_LABELS.get(svc, svc)}")
 
+        if gw_host:
+            cleaned["gateway_host"] = gw_host if gw_port == 8080 else f"{gw_host}:{gw_port}"
+            cleaned["gateway_port"] = gw_port
+            cleaned["use_gateway"] = True
         self._data.update(cleaned)
         return self
 

@@ -37,17 +37,64 @@ public class ApiClient {
     public OffsetDateTime expiresAt;
     public Map<String, Object> user = new LinkedHashMap<>();
 
+    /** Los siete servicios que se alcanzan a traves del gateway: /api/<servicio>. */
+    public static final String[] SERVICES = {"login", "books", "users", "autores", "pedidos", "pagos", "rastreo"};
+    public static final int GATEWAY_PORT = 8080;
+    private static final Path CONFIG = Paths.get("config.properties");
+
+    /** Direccion del gateway nginx, p. ej. http://34.51.29.27:8080 (sin /api). */
+    private String gateway;
+
     public ApiClient() {
-        // Sesion 08 - Reverse Proxy: todas las URLs pasan por el gateway nginx (:8080).
-        // nginx quita el prefijo /api/<servicio>, asi que las rutas no cambian.
-        String gw = "http://127.0.0.1:8080/api/";
-        for (String s : new String[]{"login", "books", "users", "autores", "pedidos", "pagos", "rastreo"})
-            cfg.setProperty(s, gw + s);
-        Path p = Paths.get("config.properties");
-        if (Files.exists(p)) try (Reader r = Files.newBufferedReader(p)) { cfg.load(r); } catch (IOException ignored) { }
+        // Sesion 08 - Reverse Proxy: la app solo conoce UNA direccion, la del
+        // gateway. Las rutas de cada servicio se arman como <gateway>/api/<svc>
+        // y nginx quita el prefijo antes de reenviar.
+        if (Files.exists(CONFIG)) try (Reader r = Files.newBufferedReader(CONFIG)) { cfg.load(r); } catch (IOException ignored) { }
+        gateway = normalizeGateway(cfg.getProperty("gateway", "127.0.0.1"));
     }
 
-    public String url(String svc) { return cfg.getProperty(svc).replaceAll("/+$", ""); }
+    /**
+     * Acepta lo que el usuario escriba ("34.51.29.27", "34.51.29.27:8080",
+     * "http://mi-vm:8080/api/login"...) y devuelve "http://host:puerto".
+     */
+    public static String normalizeGateway(String input) {
+        String g = input == null ? "" : input.trim();
+        if (g.isEmpty()) g = "127.0.0.1";
+        if (!g.matches("(?i)^https?://.*")) g = "http://" + g;
+        g = g.replaceAll("/+$", "").replaceAll("(?i)/api(/.*)?$", "");
+        String hostPort = g.replaceFirst("(?i)^https?://", "").split("/", 2)[0];
+        if (!hostPort.contains(":")) g = g.replaceFirst("(?i)^(https?://[^/]+)", "$1:" + GATEWAY_PORT);
+        return g;
+    }
+
+    public String gateway() { return gateway; }
+
+    /** Cambia la IP del gateway y la guarda en config.properties para el proximo arranque. */
+    public void setGateway(String input) {
+        String g = normalizeGateway(input);
+        boolean changed = !g.equals(cfg.getProperty("gateway"));
+        gateway = g;
+        if (!changed) return;               // misma IP: no se reescribe el archivo
+        cfg.setProperty("gateway", gateway);
+        for (String s : SERVICES) cfg.remove(s);
+        try (Writer w = Files.newBufferedWriter(CONFIG)) {
+            cfg.store(w, "Library Desktop - direccion del gateway nginx (Sesion 08). Las rutas se arman como <gateway>/api/<servicio>.");
+        } catch (IOException ignored) { }
+    }
+
+    /** true si el gateway responde GET /health. */
+    public boolean gatewayAlive() {
+        try {
+            HttpRequest req = HttpRequest.newBuilder(URI.create(gateway + "/health")).timeout(Duration.ofSeconds(4)).GET().build();
+            return http.send(req, HttpResponse.BodyHandlers.discarding()).statusCode() == 200;
+        } catch (Exception e) { return false; }
+    }
+
+    /** URL base de un servicio: <gateway>/api/<svc>. Una clave <svc>= en config.properties la sobreescribe. */
+    public String url(String svc) {
+        String override = cfg.getProperty(svc);
+        return (override != null && !override.isBlank() ? override : gateway + "/api/" + svc).replaceAll("/+$", "");
+    }
 
     public static String enc(String v) { return URLEncoder.encode(v, StandardCharsets.UTF_8); }
 

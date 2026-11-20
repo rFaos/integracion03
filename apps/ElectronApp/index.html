@@ -46,8 +46,9 @@
   <!-- Barra de Configuración Persistente (LocalStorage) -->
   <section class="config-bar">
     <div class="config-group">
-      <label for="inputBaseUrl">🌐 URL Microservicio:</label>
-      <input type="text" id="inputBaseUrl" class="config-input" value="http://127.0.0.1:8080/api/books" placeholder="http://127.0.0.1:8080/api/books">
+      <label for="inputServer" title="Solo la IP del gateway nginx: la app arma http://IP:8080/api/books">🌐 Servidor (IP del gateway):</label>
+      <input type="text" id="inputServer" class="config-input" value="127.0.0.1" placeholder="p. ej. 34.51.29.27"
+             title="Escribe solo la IP (o IP:puerto). La URL del servicio de libros se arma sola: http://IP:8080/api/books">
     </div>
 
     <div class="config-group">
