@@ -81,6 +81,24 @@ la prueba de falla dio 6/6 respuestas 200.
 - **Una pieza más que operar** (configuración, logs, despliegue), justificada aquí porque
   hay siete servicios y tres clientes; con un servicio y un cliente no valdría la pena.
 
+### Retos del despliegue en Google Cloud
+
+- **La VM era CentOS Stream 10, no Ubuntu.** El script asumía `apt-get`; se generalizó a
+  `apt-get`/`dnf`/`yum`.
+- **SELinux** bloquea por defecto que nginx abra conexiones a otros puertos (502) y que
+  escuche en el 8080. Se resolvió con `setsebool -P httpd_can_network_connect 1` y
+  `semanage port -a -t http_port_t -p tcp 8080`.
+- **`access_log /dev/stdout`** funcionaba en Docker pero hacía fallar a nginx bajo systemd
+  (la salida estándar es un socket). `nginx -t` pasaba y aun así el servicio no arrancaba.
+- **Configuración incompleta de los servicios:** cuatro `.env` de la VM no tenían los datos
+  de PostgreSQL. El gateway lo hizo evidente: login y libros daban 200 y el resto 503 con
+  el mismo cuerpo directo y por nginx, lo que descartó al proxy como causa.
+- **Filtro de la red escolar (FortiGuard):** desde la red de la universidad, cualquier
+  petición a `IP:8080` regresa `403 Web Filter Violation` antes de llegar a Google Cloud.
+  Se prueba desde otra red o con un túnel SSH (`gcloud compute ssh -- -L 8080:127.0.0.1:8080`).
+  Es otro argumento a favor de un solo punto de entrada: hay que pedir que se permita **un**
+  destino, no siete.
+
 ## 4. Preguntas de la sesión
 
 - **¿Qué resolvió y qué introdujo?** Resolvió el acoplamiento de las apps a siete

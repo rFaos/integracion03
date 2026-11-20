@@ -84,3 +84,17 @@ respondió (`upstream`), código del upstream y tiempos (`rt` total, `urt` del s
 [`nginx/upstreams.docker.conf`](nginx/upstreams.docker.conf) ·
 [`nginx/upstreams.local.conf`](nginx/upstreams.local.conf) ·
 [`docker-compose.yml`](docker-compose.yml). Validadas con `nginx -t` en ambas variantes.
+
+## 7. Despliegue en Google Cloud — `evidencias/gcp_vm_pruebas.log`
+
+VM `maquina-03` (CentOS Stream 10, `northamerica-south1-c`), nginx 1.26.3 instalado con
+`gcp/desplegar_gateway_gcp.sh`. Regla de firewall `library-gateway-8080` (`tcp:8080`).
+
+- Las **7 rutas** `/api/<servicio>/health` responden **200** a través del gateway.
+- **Round robin** de libros: `5001, 6001, 5001, 6001, 5001, 6001`.
+- Los microservicios escuchan **solo en `127.0.0.1`**; el único puerto del gateway hacia
+  fuera es `0.0.0.0:8080`. (El rastreo escucha en `0.0.0.0:5006` porque su código fija el
+  host; queda cerrado al eliminar la regla de firewall de 5000-5007.)
+- El log de nginx en la VM registra `request_id`, instancia (`upstream`) y tiempos.
+
+En las apps basta escribir la IP externa de la VM en el campo **Servidor (IP del gateway)**.

@@ -1,0 +1,35 @@
+=== Library API Gateway en Google Cloud (maquina-03, 2026-11-20 23:19:07 UTC) ===
+
+[nginx]
+nginx version: nginx/1.26.3
+active
+
+[RF1] Rutas a traves del gateway (:8080)
+  login    200  upstream=127.0.0.1:5000  0.025916s
+  books    200  upstream=127.0.0.1:6001  0.013933s
+  users    200  upstream=127.0.0.1:5002  0.027277s
+  autores  200  upstream=127.0.0.1:5003  0.014736s
+  pedidos  200  upstream=127.0.0.1:5004  0.017102s
+  pagos    200  upstream=127.0.0.1:5005  0.017438s
+  rastreo  200  upstream=127.0.0.1:5006  0.001834s
+
+[RF3] Round robin libros, 6 peticiones:
+  127.0.0.1:5001 127.0.0.1:6001 127.0.0.1:5001 127.0.0.1:6001 127.0.0.1:5001 127.0.0.1:6001 
+
+[Seguridad] Puertos en escucha (servicios solo en 127.0.0.1, gateway en 0.0.0.0:8080):
+  0.0.0.0:5006 
+  0.0.0.0:8080 
+  127.0.0.1:5000 
+  127.0.0.1:5001 
+  127.0.0.1:5002 
+  127.0.0.1:5003 
+  127.0.0.1:5004 
+  127.0.0.1:5005 
+  127.0.0.1:6001 
+
+[RF7] Ultimas lineas del log de nginx:
+  2026-11-20T23:19:07+00:00 rid=0a43355a2cc0bcd33c0adcd14832e1b9 ip=127.0.0.1 "GET /api/books/health HTTP/1.1" status=200 upstream=127.0.0.1:6001 up_status=200 rt=0.009s urt=0.009s
+  2026-11-20T23:19:07+00:00 rid=d8556c83879cb965d89bf04f1ad6f287 ip=127.0.0.1 "GET /api/books/health HTTP/1.1" status=200 upstream=127.0.0.1:5001 up_status=200 rt=0.009s urt=0.009s
+  2026-11-20T23:19:07+00:00 rid=5e20babd8a14a2b648e99f01a715a446 ip=127.0.0.1 "GET /api/books/health HTTP/1.1" status=200 upstream=127.0.0.1:6001 up_status=200 rt=0.010s urt=0.009s
+  2026-11-20T23:19:07+00:00 rid=0b5a1071ac29dd80d5b8e14027bd4845 ip=127.0.0.1 "GET /api/books/health HTTP/1.1" status=200 upstream=127.0.0.1:5001 up_status=200 rt=0.011s urt=0.010s
+  2026-11-20T23:19:07+00:00 rid=69289a780baa586c905e984c3dfd1af4 ip=127.0.0.1 "GET /api/books/health HTTP/1.1" status=200 upstream=127.0.0.1:6001 up_status=200 rt=0.009s urt=0.009s
