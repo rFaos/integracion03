@@ -1,0 +1,36 @@
+=== Pruebas de FALLA contra http://127.0.0.1:8080 (2026-11-20 16:31:47) ===
+
+[RF3] Antes de la falla: round robin normal
+  peticion 1 -> 200  X-Upstream: 192.168.65.254:5001
+  peticion 2 -> 200  X-Upstream: 192.168.65.254:6001
+  peticion 3 -> 200  X-Upstream: 192.168.65.254:5001
+  peticion 4 -> 200  X-Upstream: 192.168.65.254:6001
+
+[RF4] Se apaga la instancia de Libros en :5001 (queda :6001)
+  :5001 apagado
+  peticion 1 -> 200  X-Upstream: 192.168.65.254:5001, 192.168.65.254:6001  (0.015809s)
+  peticion 2 -> 200  X-Upstream: 192.168.65.254:6001  (0.010465s)
+  peticion 3 -> 200  X-Upstream: 192.168.65.254:5001, 192.168.65.254:6001  (0.019226s)
+  peticion 4 -> 200  X-Upstream: 192.168.65.254:6001  (0.023232s)
+  peticion 5 -> 200  X-Upstream: 192.168.65.254:6001  (0.008209s)
+  peticion 6 -> 200  X-Upstream: 192.168.65.254:6001  (0.008360s)
+  => el cliente siempre recibe 200: nginx reintenta en :6001 (proxy_next_upstream)
+     y aparta :5001 de la rotacion 10 s (max_fails=2 fail_timeout=10s)
+
+[RF6] Se apaga Pagos (:5005, instancia unica) -> 503 JSON con request_id
+  :5005 apagado
+  {"error":"SERVICE_UNAVAILABLE","message":"El servicio no esta disponible en este momento.","upstream":"192.168.65.254:5005","request_id":"359b7a32d747ecf00450ff54ebced726"}
+    HTTP 503
+
+Registro de nginx (una linea por peticion: request_id, upstream, codigo, tiempos):
+  2026-11-20T22:31:47+00:00 rid=325acacd3dbf6e26d189b77b79b3968a ip=172.18.0.1 "GET /api/books/books?format=json HTTP/1.1" status=200 upstream=192.168.65.254:5001 up_status=200 rt=0.009s urt=0.008s
+  2026-11-20T22:31:47+00:00 rid=71f123d4282152395bf826de9aa97fbc ip=172.18.0.1 "GET /api/books/books?format=json HTTP/1.1" status=200 upstream=192.168.65.254:6001 up_status=200 rt=0.006s urt=0.006s
+  2026-11-20T22:31:47+00:00 rid=4d43d04a07d764e5094364d5446ad228 ip=172.18.0.1 "GET /api/books/books?format=json HTTP/1.1" status=200 upstream=192.168.65.254:5001 up_status=200 rt=0.004s urt=0.005s
+  2026-11-20T22:31:47+00:00 rid=ae8846541605ce1e6fdb7419f52e4dda ip=172.18.0.1 "GET /api/books/books?format=json HTTP/1.1" status=200 upstream=192.168.65.254:6001 up_status=200 rt=0.005s urt=0.005s
+  2026-11-20T22:31:49+00:00 rid=c4a43e008330fade6716f81b652fd86b ip=172.18.0.1 "GET /api/books/books?format=json HTTP/1.1" status=200 upstream=192.168.65.254:5001, 192.168.65.254:6001 up_status=502, 200 rt=0.011s urt=0.002, 0.010s
+  2026-11-20T22:31:49+00:00 rid=c72fb01163597ac1a0385b98f9651b57 ip=172.18.0.1 "GET /api/books/books?format=json HTTP/1.1" status=200 upstream=192.168.65.254:6001 up_status=200 rt=0.006s urt=0.006s
+  2026-11-20T22:31:50+00:00 rid=bdf5d8672afbe2e003e78252cf0fa1e4 ip=172.18.0.1 "GET /api/books/books?format=json HTTP/1.1" status=200 upstream=192.168.65.254:5001, 192.168.65.254:6001 up_status=502, 200 rt=0.015s urt=0.003, 0.011s
+  2026-11-20T22:31:50+00:00 rid=d9d5e9fb8358966188d55132840db819 ip=172.18.0.1 "GET /api/books/books?format=json HTTP/1.1" status=200 upstream=192.168.65.254:6001 up_status=200 rt=0.015s urt=0.015s
+  2026-11-20T22:31:50+00:00 rid=af1eb4c4f36e601003c9353ce0ca9f0b ip=172.18.0.1 "GET /api/books/books?format=json HTTP/1.1" status=200 upstream=192.168.65.254:6001 up_status=200 rt=0.005s urt=0.005s
+  2026-11-20T22:31:50+00:00 rid=d21757db873806fd0a5320e8b1848117 ip=172.18.0.1 "GET /api/books/books?format=json HTTP/1.1" status=200 upstream=192.168.65.254:6001 up_status=200 rt=0.005s urt=0.005s
+  2026-11-20T22:31:52+00:00 rid=359b7a32d747ecf00450ff54ebced726 ip=172.18.0.1 "GET /api/pagos/health HTTP/1.1" status=503 upstream=192.168.65.254:5005 up_status=502 rt=0.002s urt=0.002s

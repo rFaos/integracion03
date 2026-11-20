@@ -7,8 +7,15 @@
     "creando runtime/config.json con esta misma forma."
   ],
 
-  "login_base_url": "http://127.0.0.1:5000",
-  "books_base_url": "http://127.0.0.1:5001",
+  "login_base_url": "http://127.0.0.1:8080/api/login",
+  "books_base_url": "http://127.0.0.1:8080/api/books",
+  "users_base_url": "http://127.0.0.1:8080/api/users",
+  "autores_base_url": "http://127.0.0.1:8080/api/autores",
+  "pedidos_base_url": "http://127.0.0.1:8080/api/pedidos",
+  "pagos_base_url": "http://127.0.0.1:8080/api/pagos",
+
+  "use_gateway": true,
+  "gateway_port": 8080,
 
   "remote_host": "34.51.29.27",
   "remote_login_port": 5000,

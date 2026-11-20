@@ -24,7 +24,11 @@
 // Se usa 127.0.0.1 en lugar de localhost: en Windows, "localhost" resuelve
 // primero a IPv6 (::1) mientras el microservicio escucha en IPv4, y cada
 // petición esperaba ~2 s a que esa conexión fallara antes de reintentar.
-const DEFAULT_BASE_URL = "http://127.0.0.1:5001";
+// Sesion 08 - Reverse Proxy: la app ya NO habla directo con el puerto 5001,
+// sino con el gateway nginx (:8080). El prefijo /api/books lo quita nginx, asi
+// que el endpoint "/books" sigue siendo el mismo.
+//   Local: http://127.0.0.1:8080/api/books    GCP: http://<IP_VM>:8080/api/books
+const DEFAULT_BASE_URL = "http://127.0.0.1:8080/api/books";
 const DEFAULT_ENDPOINT = "/books";
 
 // Estado de la Aplicación

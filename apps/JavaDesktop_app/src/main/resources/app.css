@@ -1,0 +1,17 @@
+.root { -fx-font-family: "Segoe UI"; -fx-font-size: 13px; -fx-background-color: #f4f6fb; }
+.login-bg { -fx-background-color: linear-gradient(to bottom right, #1e3c72, #2a5298); }
+.card { -fx-background-color: white; -fx-background-radius: 14; -fx-effect: dropshadow(gaussian, rgba(0,0,0,.35), 20, 0, 0, 4); }
+.topbar { -fx-background-color: #1e3c72; }
+.topbar .label { -fx-text-fill: white; }
+.primary { -fx-background-color: #2a5298; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6; }
+.primary:hover { -fx-background-color: #1e3c72; }
+.book-card { -fx-background-color: white; -fx-background-radius: 10; -fx-effect: dropshadow(gaussian, rgba(0,0,0,.15), 8, 0, 0, 2); }
+.book-title { -fx-font-weight: bold; -fx-font-size: 14px; }
+.muted { -fx-text-fill: #6b7280; -fx-font-size: 12px; }
+.price { -fx-text-fill: #0f766e; -fx-font-weight: bold; -fx-font-size: 15px; }
+.ok { -fx-text-fill: #15803d; }
+.warn { -fx-text-fill: #b91c1c; }
+.nocover { -fx-background-color: #e5e7eb; -fx-text-fill: #6b7280; -fx-text-alignment: center; -fx-border-color: #cbd5e1; }
+.total { -fx-font-size: 16px; -fx-font-weight: bold; }
+.estado { -fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #2a5298; }
+.statusbar { -fx-padding: 4 12; -fx-background-color: #e5e7eb; -fx-text-fill: #374151; }

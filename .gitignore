@@ -52,3 +52,6 @@ entrega_jwt/*.zip
 # Archivos locales que no van al repo
 apps (3).zip
 /100
+
+# Paquete de entrega (se sube a la plataforma del curso)
+entrega_reverse_proxy*.zip

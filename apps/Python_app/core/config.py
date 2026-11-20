@@ -42,12 +42,21 @@ DEFAULT_CONFIG = {
     # practica); al cambiarlo a "https" se reescriben TODAS las direcciones y la
     # preferencia queda guardada en config.json, de modo que sobrevive al cierre.
     "scheme": "http",
-    "login_base_url": "http://127.0.0.1:5000",
-    "books_base_url": "http://127.0.0.1:5001",
-    "users_base_url": "http://127.0.0.1:5002",
-    "autores_base_url": "http://127.0.0.1:5003",
-    "pedidos_base_url": "http://127.0.0.1:5004",
-    "pagos_base_url": "http://127.0.0.1:5005",
+    #
+    # Sesion 08 - Reverse Proxy: las seis direcciones apuntan al gateway nginx
+    # (:8080). nginx quita el prefijo /api/<servicio> antes de reenviar, asi que
+    # ServiceClient sigue armando base_url + "/books", "/login", etc. sin cambios.
+    "login_base_url": "http://127.0.0.1:8080/api/login",
+    "books_base_url": "http://127.0.0.1:8080/api/books",
+    "users_base_url": "http://127.0.0.1:8080/api/users",
+    "autores_base_url": "http://127.0.0.1:8080/api/autores",
+    "pedidos_base_url": "http://127.0.0.1:8080/api/pedidos",
+    "pagos_base_url": "http://127.0.0.1:8080/api/pagos",
+    # Con use_gateway=True el boton "Usar remoto" construye
+    # http://<remote_host>:<gateway_port>/api/<servicio>; con False vuelve al
+    # esquema anterior de un puerto por servicio (remote_<svc>_port).
+    "use_gateway": True,
+    "gateway_port": 8080,
     "remote_host": "34.51.29.27",
     "remote_login_port": 5000,
     "remote_books_port": 5001,
@@ -208,6 +217,9 @@ class ConfigStore:
         """Direcciones del escenario remoto (instancia en GCloud)."""
         host = self.get("remote_host")
         scheme = self.get("scheme")
+        if self.get("use_gateway"):
+            port = self.get("gateway_port")
+            return {svc: f"{scheme}://{host}:{port}/api/{svc}" for svc in SERVICE_KEYS}
         return {svc: f"{scheme}://{host}:{self.get('remote_' + svc + '_port')}"
                 for svc in SERVICE_KEYS}
 

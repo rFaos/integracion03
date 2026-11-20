@@ -50,6 +50,9 @@ RUN_DIR="${RUN_DIR:-/tmp/integracion03}"
 LOG_DIR="${LOG_DIR:-$REPO_DIR/logs}"
 VENV_DIR="${VENV_DIR:-}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-25}"   # segundos a esperar por /health
+# Con el reverse proxy nginx (apps/gateway) los servicios deben escuchar SOLO
+# en 127.0.0.1: el unico puerto expuesto es el 8080 del gateway. Para el
+# esquema anterior (puertos expuestos) usar BIND_HOST=0.0.0.0.
 BIND_HOST="${BIND_HOST:-0.0.0.0}"
 
 # Registro de servicios.  Formato:  nombre|subruta|puerto|workers|nota
@@ -62,6 +65,9 @@ BIND_HOST="${BIND_HOST:-0.0.0.0}"
 SERVICES=(
   "login|apps/services/login|5000|1|autenticacion, JWT y gestion de usuarios"
   "books|apps/services/soap|5001|2|catalogo de libros (REST + SOAP)"
+  # Segunda instancia de libros: el reverse proxy nginx reparte por turnos
+  # (round robin) entre :5001 y :6001 (Sesion 08, apps/gateway).
+  "books2|apps/services/soap|6001|2|catalogo de libros, 2a instancia (round robin nginx)"
   # Para agregar otro servicio basta con añadir una línea con el mismo formato.
   "users|apps/services/users|5002|2|usuarios, roles, correos y contrasenas"
   "autores|apps/services/autores|5003|2|autores y su relacion con libros"

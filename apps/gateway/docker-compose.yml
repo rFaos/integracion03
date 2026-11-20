@@ -1,0 +1,19 @@
+# Library API Gateway con nginx en Docker Desktop.
+#   docker compose up -d        -> gateway en http://127.0.0.1:8080
+#   docker compose logs -f      -> una linea por peticion (request_id, upstream, ms)
+services:
+  gateway:
+    image: nginx:1.27-alpine
+    container_name: library-gateway
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/upstreams.docker.conf:/etc/nginx/upstreams.tpl:ro
+      - ./nginx/conf.d/library_gateway.conf:/etc/nginx/conf.d/library_gateway.conf:ro
+      - ./docker-start.sh:/docker-start.sh:ro
+      - ./logs:/var/log/nginx
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["sh", "/docker-start.sh"]
+    restart: unless-stopped

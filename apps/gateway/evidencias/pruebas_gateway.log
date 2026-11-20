@@ -1,0 +1,42 @@
+=== Library API Gateway - pruebas contra http://127.0.0.1:8080  (2026-11-20 16:31:42) ===
+
+[RF1] Un solo puerto, rutas /api/<servicio>/ hacia los siete servicios
+  [OK ] GET /api/login/health  -> 200 upstream=192.168.65.254:5000 (177 ms)
+  [OK ] GET /api/books/health  -> 200 upstream=192.168.65.254:6001 (64 ms)
+  [OK ] GET /api/users/health  -> 200 upstream=192.168.65.254:5002 (224 ms)
+  [OK ] GET /api/autores/health  -> 200 upstream=192.168.65.254:5003 (81 ms)
+  [OK ] GET /api/pedidos/health  -> 200 upstream=192.168.65.254:5004 (122 ms)
+  [OK ] GET /api/pagos/health  -> 200 upstream=192.168.65.254:5005 (103 ms)
+  [OK ] GET /api/rastreo/health  -> 200 upstream=192.168.65.254:5006 (9 ms)
+  [OK ] GET /health (salud del gateway)  -> {"status":"ok","gateway":"nginx","port":8080,"request_id":"9289dd13350c29e96f0b3
+
+[RF2] Prefijo eliminado, query intacta, XML sin cambios
+  [OK ] GET /api/books/books?format=json -> /books?format=json  -> 10 libros
+  [OK ] GET /api/books/books?format=xml devuelve XML (app Electron)  -> application/xml; charset=utf-8
+
+[RF7] X-Request-ID generado o respetado
+  [OK ] nginx genera X-Request-ID  -> d92fdcd237286b0b24af7f125d39cc86
+  [OK ] nginx respeta el X-Request-ID del cliente  -> cd9bb4a79d78
+
+[RF3] Round robin entre dos instancias de Libros (:5001 y :6001)
+  puertos que respondieron, 6 peticiones seguidas: ['5001', '6001', '5001', '6001', '5001', '6001']
+  [OK ] las peticiones alternan entre las dos instancias  -> ['5001', '6001']
+
+[RF2] Login, JWT y cookie a traves del gateway
+  [OK ] POST /api/login/login -> 200 + access_token  -> 200, token=si
+  [info] Set-Cookie en la respuesta: no (login entrega JWT en el cuerpo)
+  [OK ] el cuerpo JSON del login llega intacto  -> Autenticación exitosa. Usa 'Authorization: Bearer <access_to
+  [OK ] GET /api/login/session con Bearer -> 200 (Authorization intacto)  -> 200
+  [OK ] GET /api/pedidos/pedidos con Bearer -> 200  -> 200
+  [OK ] GET /api/pedidos/pedidos SIN token -> 401 del servicio (pasa tal cual)  -> 401
+
+[RF6] Errores uniformes en JSON con request_id
+  [OK ] ruta desconocida -> 404 JSON  -> {"error":"NOT_FOUND","message":"Ruta desconocida en el gateway. Use /api/<servicio>/...","request_id":"e00f2c4
+
+[RF8] Limite de tasa por IP (zona login: 30 r/min, burst 10)
+  40 peticiones seguidas: 9 x 200, 31 x 429
+  [OK ] una rafaga produce 429
+  [OK ] el 429 es JSON con request_id  -> {"error":"TOO_MANY_REQUESTS","message":"Demasiadas solicitudes, intente de nuevo en un momento.","request_id":
+
+=== TODO OK ===
+

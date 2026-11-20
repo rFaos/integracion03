@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Rastreo Monterrey</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  html, body, #map { margin: 0; height: 100%; font-family: Segoe UI, sans-serif; }
+  .truck { font-size: 30px; line-height: 30px; text-align: center; }
+  #status { position: absolute; z-index: 1000; top: 10px; right: 10px; background: #fff;
+            padding: 8px 12px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.3); font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="status">Esperando datos del WebSocket...</div>
+<script>
+  // El mapa NO abre su propio socket: la app Java recibe los mensajes por
+  // java.net.http.WebSocket y los inyecta aqui con WebEngine.executeScript().
+  var map = L.map('map').setView([25.6866, -100.3161], 13);   // Monterrey, N.L.
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+  var planned = null, done = null, truck = null, dest = null, origin = null;
+  var truckIcon = L.divIcon({ className: 'truck', html: '🚚', iconSize: [30, 30], iconAnchor: [15, 15] });
+
+  function resetRoute(full, walked, d) {
+    [planned, done, truck, dest, origin].forEach(function (l) { if (l) map.removeLayer(l); });
+    planned = L.polyline(full, { color: '#888', weight: 4, dashArray: '6 8' }).addTo(map);
+    done = L.polyline(walked, { color: '#0a7cff', weight: 6 }).addTo(map);
+    origin = L.marker(full[0]).addTo(map).bindPopup('Almacen Library');
+    dest = L.marker(full[full.length - 1]).addTo(map).bindPopup('Destino de entrega');
+    truck = L.marker([d.lat, d.lng], { icon: truckIcon }).addTo(map);
+    map.fitBounds(planned.getBounds(), { padding: [30, 30] });
+    update(d);
+  }
+
+  function update(d) {
+    if (!truck) return;
+    var p = [d.lat, d.lng];
+    truck.setLatLng(p);
+    var pts = done.getLatLngs();
+    var last = pts[pts.length - 1];
+    if (!last || last.lat !== d.lat || last.lng !== d.lng) done.addLatLng(p);
+    truck.bindTooltip(d.estado, { permanent: true, direction: 'top', offset: [0, -14] });
+    document.getElementById('status').innerHTML =
+      '<b>' + d.codigo + '</b><br>' + d.estado + ' &middot; ' + d.progreso + '%<br>' +
+      d.lat.toFixed(5) + ', ' + d.lng.toFixed(5) + '<br><small>' + d.ruta + '</small>';
+  }
+</script>
+</body>
+</html>
