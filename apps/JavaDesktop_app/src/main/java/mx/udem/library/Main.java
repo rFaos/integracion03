@@ -212,21 +212,171 @@ public class Main extends Application {
     }
 
     // ================================================ Modulo 1: autenticacion
+    /** Campo con su etiqueta encima (formulario apilado). */
+    private static VBox field(String label, Control input) {
+        Label l = new Label(label); l.getStyleClass().add("field-label");
+        input.setMaxWidth(Double.MAX_VALUE); input.getStyleClass().add("auth-input");
+        return new VBox(5, l, input);
+    }
+
+    /** Aviso dentro de la tarjeta: "error", "success" o "info". Vacio = oculto. */
+    private static void banner(Label b, String kind, String text) {
+        b.getStyleClass().removeAll("banner-error", "banner-success", "banner-info");
+        boolean show = text != null && !text.isBlank();
+        b.setText(show ? text : ""); b.setVisible(show); b.setManaged(show);
+        if (show) b.getStyleClass().add("banner-" + kind);
+    }
+
+    /**
+     * Pantalla de acceso con dos modos: "Iniciar sesion" y "Crear cuenta".
+     * Ambos piden CAPTCHA (el servicio login lo exige y es de un solo uso, asi que
+     * se pide uno nuevo tras cada intento). Todo viaja por el gateway nginx.
+     */
     private void showLogin(String notice) {
         if (sessionWatch != null) sessionWatch.stop();
         cart.clear();
-        TextField email = new TextField(); email.setPromptText("correo@ejemplo.com");
-        PasswordField pass = new PasswordField(); pass.setPromptText("contrasena");
-        Label q = new Label("Cargando CAPTCHA...");
-        TextField ans = new TextField(); ans.setPromptText("respuesta");
-        String[] captchaId = {null};
-        Button reload = new Button("↻");
-        Button go = new Button("Iniciar sesion"); go.setDefaultButton(true); go.getStyleClass().add("primary");
-        Label msg = new Label(notice == null ? "" : notice); msg.getStyleClass().add("warn"); msg.setWrapText(true);
-        Label server = new Label("login: " + api.url("login")); server.getStyleClass().add("muted");
 
-        boolean auto = EVID != null && notice == null;
+        // ---------- campos de inicio de sesion
+        TextField email = new TextField(); email.setPromptText("correo@ejemplo.com");
+        PasswordField pass = new PasswordField(); pass.setPromptText("Tu contrasena");
+
+        // ---------- campos de registro
+        TextField rNombre = new TextField(); rNombre.setPromptText("Nombre");
+        TextField rPaterno = new TextField(); rPaterno.setPromptText("Apellido paterno");
+        TextField rMaterno = new TextField(); rMaterno.setPromptText("Apellido materno");
+        TextField rEmail = new TextField(); rEmail.setPromptText("correo@ejemplo.com");
+        PasswordField rPass = new PasswordField(); rPass.setPromptText("Minimo 8 caracteres");
+        PasswordField rPass2 = new PasswordField(); rPass2.setPromptText("Repite la contrasena");
+        Label rules = new Label("Al menos 8 caracteres, con mayuscula, minuscula, numero y simbolo.");
+        rules.getStyleClass().add("hint"); rules.setWrapText(true);
+
+        // ---------- CAPTCHA compartido por ambos modos
+        Label q = new Label("Cargando..."); q.getStyleClass().add("captcha-q");
+        TextField ans = new TextField(); ans.setPromptText("Respuesta"); ans.setPrefWidth(110);
+        ans.getStyleClass().add("auth-input");
+        Button reload = new Button("↻"); reload.getStyleClass().add("icon-btn");
+        reload.setTooltip(new Tooltip("Otro CAPTCHA"));
+        Region spacer = new Region(); HBox.setHgrow(spacer, Priority.ALWAYS);
+        Label lock = new Label("CAPTCHA"); lock.getStyleClass().add("captcha-tag");
+        HBox captchaRow = new HBox(10, lock, q, spacer, ans, reload);
+        captchaRow.setAlignment(Pos.CENTER_LEFT); captchaRow.getStyleClass().add("captcha-box");
+        String[] captchaId = {null};
+
+        Label msg = new Label(); msg.setWrapText(true); msg.setMaxWidth(Double.MAX_VALUE);
+        banner(msg, "Sesion cerrada.".equals(notice) ? "info" : "error", notice);
+
+        Button go = new Button("Iniciar sesion"); go.setDefaultButton(true);
+        go.getStyleClass().addAll("primary", "wide"); go.setMaxWidth(Double.MAX_VALUE);
+
+        // ---------- selector de modo (pestanas)
+        ToggleGroup modeGroup = new ToggleGroup();
+        ToggleButton tLogin = new ToggleButton("Iniciar sesion"), tReg = new ToggleButton("Crear cuenta");
+        for (ToggleButton t : new ToggleButton[]{tLogin, tReg}) {
+            t.setToggleGroup(modeGroup); t.getStyleClass().add("seg"); t.setMaxWidth(Double.MAX_VALUE);
+            HBox.setHgrow(t, Priority.ALWAYS);
+        }
+        tLogin.setSelected(true);
+        HBox seg = new HBox(4, tLogin, tReg); seg.getStyleClass().add("seg-box");
+
+        VBox loginForm = new VBox(14, field("Correo electronico", email), field("Contrasena", pass));
+        GridPane names = new GridPane(); names.setHgap(12); names.setVgap(12);
+        ColumnConstraints half = new ColumnConstraints(); half.setPercentWidth(50);
+        names.getColumnConstraints().addAll(half, half);
+        names.add(field("Nombre", rNombre), 0, 0, 2, 1);
+        names.add(field("Apellido paterno", rPaterno), 0, 1);
+        names.add(field("Apellido materno", rMaterno), 1, 1);
+        names.add(field("Correo electronico", rEmail), 0, 2, 2, 1);
+        names.add(field("Contrasena", rPass), 0, 3);
+        names.add(field("Confirmar", rPass2), 1, 3);
+        VBox regForm = new VBox(8, names, rules);
+
+        StackPane forms = new StackPane(loginForm, regForm);
+        Label subtitle = new Label(); subtitle.getStyleClass().add("subtitle"); subtitle.setWrapText(true);
+
         Runnable loadCaptcha = () -> async("Obtener CAPTCHA", api::captcha, c -> {
+            captchaId[0] = Json.str(c.get("captcha_id")); q.setText(Json.str(c.get("question"))); ans.clear();
+        });
+
+        Runnable applyMode = () -> {
+            boolean reg = tReg.isSelected();
+            loginForm.setVisible(!reg); loginForm.setManaged(!reg);
+            regForm.setVisible(reg); regForm.setManaged(reg);
+            go.setText(reg ? "Crear cuenta" : "Iniciar sesion");
+            subtitle.setText(reg ? "Crea tu cuenta de cliente para comprar y rastrear pedidos."
+                                 : "Bienvenido de nuevo. Ingresa con tu cuenta.");
+        };
+        // Un ToggleGroup permite deseleccionar: se fuerza que siempre haya un modo.
+        modeGroup.selectedToggleProperty().addListener((o, old, now) -> {
+            if (now == null) { old.setSelected(true); return; }
+            banner(msg, "info", null); applyMode.run();
+        });
+        reload.setOnAction(e -> loadCaptcha.run());
+
+        // Los errores de esta pantalla (incluido el 401 de credenciales) se muestran
+        // en la tarjeta en lugar de tratarse como "sesion vencida".
+        go.setOnAction(e -> {
+            boolean reg = tReg.isSelected();
+            int a;
+            try { a = Integer.parseInt(ans.getText().trim()); }
+            catch (Exception ex) { banner(msg, "error", "Responde el CAPTCHA con un numero."); return; }
+            Supplier<Boolean> work;
+            if (!reg) {
+                if (email.getText().isBlank() || pass.getText().isEmpty()) { banner(msg, "error", "Escribe tu correo y tu contrasena."); return; }
+                String em = email.getText().trim(), pw = pass.getText();
+                work = () -> { api.login(em, pw, captchaId[0], a); return true; };
+            } else {
+                if (rNombre.getText().isBlank() || rPaterno.getText().isBlank() || rMaterno.getText().isBlank()
+                        || rEmail.getText().isBlank() || rPass.getText().isEmpty()) {
+                    banner(msg, "error", "Todos los campos son obligatorios."); return;
+                }
+                if (!rPass.getText().equals(rPass2.getText())) { banner(msg, "error", "Las contrasenas no coinciden."); return; }
+                Map<String, Object> body = Json.map("nombre", rNombre.getText().trim(), "apellido_paterno", rPaterno.getText().trim(),
+                        "apellido_materno", rMaterno.getText().trim(), "email", rEmail.getText().trim(),
+                        "password", rPass.getText(), "captcha_id", captchaId[0], "captcha_answer", a);
+                work = () -> { api.register(body); return true; };
+            }
+            go.setDisable(true); go.setText("Procesando..."); banner(msg, "info", null);
+            Thread t = new Thread(() -> {
+                String err = null;
+                try { work.get(); } catch (Exception ex) { err = String.valueOf(ex.getMessage()); }
+                String fErr = err;
+                Platform.runLater(() -> {
+                    go.setDisable(false); applyMode.run();
+                    if (fErr != null) { banner(msg, "error", fErr); loadCaptcha.run(); return; }
+                    if (!reg) { showMain(); return; }
+                    // Registro correcto: se pasa a "Iniciar sesion" con el correo ya escrito.
+                    email.setText(rEmail.getText().trim()); pass.clear();
+                    for (TextField f : new TextField[]{rNombre, rPaterno, rMaterno, rEmail, rPass, rPass2}) f.clear();
+                    tLogin.setSelected(true);
+                    banner(msg, "success", "Cuenta creada. Ya puedes iniciar sesion.");
+                    loadCaptcha.run(); pass.requestFocus();
+                });
+            }, "auth");
+            t.setDaemon(true); t.start();
+        });
+
+        // ---------- encabezado y pie de la tarjeta
+        Label logo = new Label("📚"); logo.getStyleClass().add("logo");
+        Label title = new Label("Library"); title.getStyleClass().add("brand");
+        VBox head = new VBox(2, title, subtitle);
+        HBox header = new HBox(14, logo, head); header.setAlignment(Pos.CENTER_LEFT);
+        Label server = new Label("●  Gateway  " + api.url("login").replaceAll("/api/login$", ""));
+        server.getStyleClass().add("server-pill");
+        HBox foot = new HBox(server); foot.setAlignment(Pos.CENTER);
+
+        VBox card = new VBox(18, header, seg, forms, captchaRow, msg, go, foot);
+        card.getStyleClass().addAll("card", "auth-card"); card.setMaxWidth(480);
+        card.setMaxHeight(Region.USE_PREF_SIZE); card.setPadding(new Insets(32, 36, 26, 36));
+        StackPane root = new StackPane(card); root.getStyleClass().add("login-bg");
+        root.setPadding(new Insets(24));
+        ScrollPane sp = new ScrollPane(root); sp.setFitToWidth(true); sp.setFitToHeight(true);
+        sp.getStyleClass().add("login-scroll");
+        stage.setScene(scene(sp));
+        applyMode.run();
+
+        // ---------- modo evidencias: entra solo con el usuario de demo.properties
+        boolean auto = EVID != null && notice == null;
+        async("Obtener CAPTCHA", api::captcha, c -> {
             captchaId[0] = Json.str(c.get("captcha_id")); q.setText(Json.str(c.get("question"))); ans.clear();
             if (auto) {
                 Properties demo = new Properties();
@@ -236,27 +386,6 @@ public class Main extends Application {
                 later(1, () -> { snap("01_login"); go.fire(); });
             } else if (EVID != null) later(1, () -> snap("14_sesion_expirada"));
         });
-        reload.setOnAction(e -> loadCaptcha.run());
-        go.setOnAction(e -> {
-            int a;
-            try { a = Integer.parseInt(ans.getText().trim()); } catch (Exception ex) { msg.setText("La respuesta del CAPTCHA debe ser un numero."); return; }
-            if (email.getText().isBlank() || pass.getText().isEmpty()) { msg.setText("Correo y contrasena son obligatorios."); return; }
-            async("Iniciar sesion", () -> { api.login(email.getText().trim(), pass.getText(), captchaId[0], a); return true; },
-                    ok -> showMain());
-        });
-
-        GridPane g = new GridPane(); g.setHgap(10); g.setVgap(12);
-        g.addRow(0, new Label("Correo"), email);
-        g.addRow(1, new Label("Contrasena"), pass);
-        g.addRow(2, new Label("CAPTCHA"), new HBox(8, q, reload));
-        g.addRow(3, new Label("Respuesta"), ans);
-        email.setPrefWidth(280);
-
-        VBox card = new VBox(16, h1("📚 Library"), new Label("Autenticacion JWT contra el microservicio login"), g, go, msg, server);
-        card.getStyleClass().add("card"); card.setMaxWidth(460); card.setPadding(new Insets(30));
-        StackPane root = new StackPane(card); root.getStyleClass().add("login-bg");
-        stage.setScene(scene(root));
-        loadCaptcha.run();
     }
 
     private void showMain() {

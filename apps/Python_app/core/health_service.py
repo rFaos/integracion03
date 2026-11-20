@@ -178,6 +178,11 @@ class HealthService:
         "connected", ...}`.
         """
         payload = payload if isinstance(payload, dict) else {}
+        # users, autores, pedidos y pagos envuelven la salud en un sobre
+        # {"status": "ok", "data": {"status": "healthy", "database": ...}};
+        # libros la devuelve plana. Se leen los campos de donde esten.
+        if isinstance(payload.get("data"), dict) and "database" not in payload:
+            payload = payload["data"]
         redis_note = HealthService._redis_note(payload)
 
         if status == 200:

@@ -122,6 +122,11 @@ public class ApiClient {
         user = Json.obj(Json.path(r, "data", "user"));
     }
 
+    /** POST /register (por el gateway: /api/login/register). Lanza ApiException con el motivo. */
+    public void register(Map<String, Object> body) {
+        call("POST", "login", "/register?format=json", body, false);
+    }
+
     public void logout() {
         try { if (accessToken != null) call("POST", "login", "/logout?format=json", null, true); } catch (Exception ignored) { }
         accessToken = null; expiresAt = null; user = new LinkedHashMap<>();
