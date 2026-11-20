@@ -108,6 +108,12 @@ bash tests/pruebas_falla.sh   # apaga :5001 y Pagos y muestra la respuesta de ng
 ./levantar_local.sh stop
 ```
 
+Desde **PowerShell** (si `bash` no está en el PATH) usa el envoltorio, que llama a Git Bash:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\apps\gateway\gateway.ps1 start   # stop | status | kill 5001 | falla
+```
+
 Solo nginx: `docker compose up -d` · log en vivo: `docker compose logs -f`.
 
 ## 6. Desplegar en Google Cloud
