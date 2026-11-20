@@ -28,20 +28,44 @@ GW="$REPO_DIR/apps/gateway/nginx"
 
 [ "$(id -u)" -eq 0 ] || { echo "Ejecuta con sudo"; exit 1; }
 
+# 1. Instalar nginx con el gestor de paquetes que tenga la VM
+#    (Debian/Ubuntu -> apt-get; Rocky/CentOS/RHEL/Fedora -> dnf o yum).
 if ! command -v nginx >/dev/null; then
-  apt-get update -y && apt-get install -y nginx
+  if command -v apt-get >/dev/null; then
+    apt-get update -y && apt-get install -y nginx
+  elif command -v dnf >/dev/null; then
+    dnf install -y nginx
+  elif command -v yum >/dev/null; then
+    yum install -y nginx
+  else
+    echo "No se encontro apt-get, dnf ni yum: instala nginx a mano."; exit 1
+  fi
 fi
+command -v nginx >/dev/null || { echo "nginx no quedo instalado"; exit 1; }
 
-# Respaldo de la configuracion actual, por si hay que volver atras.
+# 2. Respaldo de la configuracion actual, por si hay que volver atras.
 BK="/etc/nginx.bak.$(date +%Y%m%d%H%M%S)"
 cp -a /etc/nginx "$BK"
 echo "Respaldo de /etc/nginx en $BK"
 
+mkdir -p /etc/nginx/conf.d /var/log/nginx
 install -m 644 "$GW/nginx.conf"                   /etc/nginx/nginx.conf
 install -m 644 "$GW/upstreams.local.conf"         /etc/nginx/upstreams.conf
 install -m 644 "$GW/conf.d/library_gateway.conf"  /etc/nginx/conf.d/library_gateway.conf
 # El sitio "default" de Debian escucha en :80 y no se necesita.
 rm -f /etc/nginx/sites-enabled/default
+
+# 3. SELinux (Rocky/CentOS/RHEL): por defecto nginx NO puede abrir conexiones
+#    hacia otros puertos; sin esto cada peticion daria 502.
+if command -v getenforce >/dev/null && [ "$(getenforce)" != "Disabled" ]; then
+  setsebool -P httpd_can_network_connect 1 && echo "SELinux: httpd_can_network_connect=on"
+fi
+
+# 4. Firewall interno de la VM (firewalld), si esta activo: abrir 8080.
+if command -v firewall-cmd >/dev/null && firewall-cmd --state >/dev/null 2>&1; then
+  firewall-cmd --permanent --add-port=8080/tcp >/dev/null && firewall-cmd --reload >/dev/null
+  echo "firewalld: puerto 8080/tcp abierto"
+fi
 
 if nginx -t; then
   systemctl enable nginx >/dev/null 2>&1 || true
