@@ -55,10 +55,29 @@ install -m 644 "$GW/conf.d/library_gateway.conf"  /etc/nginx/conf.d/library_gate
 # El sitio "default" de Debian escucha en :80 y no se necesita.
 rm -f /etc/nginx/sites-enabled/default
 
-# 3. SELinux (Rocky/CentOS/RHEL): por defecto nginx NO puede abrir conexiones
-#    hacia otros puertos; sin esto cada peticion daria 502.
+# Usuario de los workers: el que trae el paquete de la distro (nginx en Red Hat,
+# www-data en Debian). Sin la directiva, nginx usaria "nobody" y no podria
+# escribir en sus carpetas temporales.
+for u in nginx www-data; do
+  if id "$u" >/dev/null 2>&1; then sed -i "1i user $u;" /etc/nginx/nginx.conf; echo "nginx corre como $u"; break; fi
+done
+
+# 3. SELinux (Rocky/CentOS/RHEL):
+#    - nginx NO puede abrir conexiones hacia otros puertos (sin esto: 502).
+#    - 8080 no esta entre los puertos web permitidos (sin esto: no arranca).
 if command -v getenforce >/dev/null && [ "$(getenforce)" != "Disabled" ]; then
   setsebool -P httpd_can_network_connect 1 && echo "SELinux: httpd_can_network_connect=on"
+  command -v semanage >/dev/null || dnf install -y policycoreutils-python-utils >/dev/null 2>&1 || true
+  if command -v semanage >/dev/null; then
+    semanage port -a -t http_port_t -p tcp 8080 2>/dev/null \
+      || semanage port -m -t http_port_t -p tcp 8080 2>/dev/null || true
+    echo "SELinux: puerto 8080 permitido para nginx (http_port_t)"
+  fi
+fi
+
+# Si algo ya ocupa el 8080, nginx no podra arrancar: avisar quien es.
+if command -v ss >/dev/null && ss -ltn '( sport = :8080 )' | grep -q LISTEN; then
+  echo "AVISO: el puerto 8080 ya esta ocupado:"; ss -ltnp '( sport = :8080 )' || true
 fi
 
 # 4. Firewall interno de la VM (firewalld), si esta activo: abrir 8080.
@@ -69,7 +88,13 @@ fi
 
 if nginx -t; then
   systemctl enable nginx >/dev/null 2>&1 || true
-  systemctl restart nginx
+  if ! systemctl restart nginx; then
+    echo "nginx no arranco. Diagnostico:"
+    journalctl -u nginx --no-pager -n 15 || true
+    tail -n 10 /var/log/nginx/error.log 2>/dev/null || true
+    command -v ausearch >/dev/null && ausearch -m avc -ts recent -c nginx 2>/dev/null | tail -n 5
+    exit 1
+  fi
   echo "nginx OK en :8080"
 else
   echo "nginx -t fallo: se restaura el respaldo"
